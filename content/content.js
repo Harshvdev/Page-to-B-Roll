@@ -26,6 +26,7 @@
           scrollHeight: document.documentElement.scrollHeight || document.body.scrollHeight,
           viewportWidth: window.innerWidth,
           viewportHeight: window.innerHeight,
+          devicePixelRatio: window.devicePixelRatio || 1,
         });
         break;
 

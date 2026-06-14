@@ -97,6 +97,7 @@
         pageHeight: selectionData.pageHeight,
         viewportWidth: selectionData.viewportWidth,
         viewportHeight: selectionData.viewportHeight,
+        url: window.location.href,
       };
       console.log('[Broll] Sending SELECTION_READY', payload);
       chrome.runtime.sendMessage({ type: 'SELECTION_READY', data: payload })

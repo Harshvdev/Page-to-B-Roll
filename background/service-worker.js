@@ -27,20 +27,48 @@ chrome.runtime.onInstalled.addListener(() => {
 
 function calculateStripOffsets(pageHeight, viewportHeight) {
   const offsets = [];
+  const maxScroll = Math.max(0, pageHeight - viewportHeight);
   const step = viewportHeight * 0.9;
   let y = 0;
-  while (y < pageHeight) {
+  while (y < maxScroll) {
     offsets.push(Math.round(y));
     y += step;
   }
-  if (offsets.length === 0 || offsets[offsets.length - 1] < pageHeight - 1) {
-    offsets.push(Math.round(pageHeight - viewportHeight));
+  if (offsets.length === 0 || offsets[offsets.length - 1] < maxScroll) {
+    offsets.push(Math.round(maxScroll));
   }
   return offsets;
 }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getActiveTabId() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tab ? tab.id : activeTabId;
+  } catch (err) {
+    console.error('[Broll SW] Error querying active tab:', err);
+    return activeTabId;
+  }
+}
+
+async function pingOffscreen() {
+  for (let i = 0; i < 15; i++) {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'PING' });
+      if (response && response.pong) {
+        console.log('[Broll SW] Offscreen document is ready (ping successful)');
+        return true;
+      }
+    } catch (e) {
+      // Ignored, wait and retry
+    }
+    await sleep(100);
+  }
+  console.warn('[Broll SW] Offscreen document ping handshake failed');
+  return false;
 }
 
 async function ensureOffscreenDocument() {
@@ -140,20 +168,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[Broll SW] Message received:', type, 'from tab:', sender.tab ? sender.tab.id : 'extension');
 
   if (type === MSG.ACTIVATE_SELECTION) {
-    const tabId = sender.tab ? sender.tab.id : activeTabId;
-    console.log('[Broll SW] ACTIVATE_SELECTION, target tabId:', tabId);
-    forwardToContent(tabId, message);
+    (async () => {
+      const tabId = await getActiveTabId();
+      console.log('[Broll SW] ACTIVATE_SELECTION, target tabId:', tabId);
+      forwardToContent(tabId, message);
+    })();
     return false;
   }
 
   if (type === MSG.DEACTIVATE_SELECTION) {
-    const tabId = sender.tab ? sender.tab.id : activeTabId;
-    forwardToContent(tabId, message);
+    (async () => {
+      const tabId = await getActiveTabId();
+      console.log('[Broll SW] DEACTIVATE_SELECTION, target tabId:', tabId);
+      forwardToContent(tabId, message);
+    })();
     return false;
   }
 
   if (type === MSG.SELECTION_READY) {
     console.log('[Broll SW] SELECTION_READY data:', message.data);
+    if (sender.tab) {
+      message.data.tabId = sender.tab.id;
+    }
     forwardToSidePanel(message);
     return false;
   }
@@ -169,12 +205,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        const tabId = sender.tab ? sender.tab.id : activeTabId;
+        let tabId = activeTabId;
+        if (message.payload.scenes && message.payload.scenes.length > 0) {
+          tabId = message.payload.scenes[0].tabId || activeTabId;
+        }
         console.log('[Broll SW] Starting full-page capture for tabId:', tabId);
         const captureResult = await captureFullPage(tabId);
 
         console.log('[Broll SW] Ensuring offscreen document');
         await ensureOffscreenDocument();
+        await pingOffscreen();
 
         const renderJob = {
           scenes: message.payload.scenes,
@@ -222,8 +262,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === 'REDRAW_SCENE_RECTS') {
-    const tabId = sender.tab ? sender.tab.id : activeTabId;
-    forwardToContent(tabId, message);
+    (async () => {
+      const tabId = await getActiveTabId();
+      forwardToContent(tabId, message);
+    })();
     return false;
   }
 

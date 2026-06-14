@@ -7,6 +7,10 @@ let canvas = null;
 let ctx = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'PING') {
+    sendResponse({ pong: true });
+    return false;
+  }
   if (message.type === MSG.START_RENDER) {
     console.log('[Broll Offscreen] START_RENDER received, starting render');
     handleRenderVideo(message.payload, sendResponse);
@@ -56,9 +60,10 @@ async function handleRenderVideo(payload, sendResponse) {
           watermark: useWatermark,
         };
 
-        renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit);
+        const prevScene = s > 0 ? scenes[s - 1] : null;
+        renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit, prevScene);
 
-        await frameDelay();
+        await frameDelay(fps);
 
         currentFrame++;
         const percent = Math.round((currentFrame / totalFrames) * 100);
@@ -74,7 +79,10 @@ async function handleRenderVideo(payload, sendResponse) {
       }).catch(() => {});
     }
 
-    console.log('[Broll Offscreen] All frames rendered, stopping recording');
+    console.log('[Broll Offscreen] All frames rendered, waiting for final encoding chunks');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    console.log('[Broll Offscreen] Stopping recording');
     const blob = await stopRecording(recorder);
     const blobUrl = URL.createObjectURL(blob);
     console.log('[Broll Offscreen] Recording complete, blob URL: ' + blobUrl + ' size: ' + blob.size);
@@ -96,6 +104,6 @@ async function handleRenderVideo(payload, sendResponse) {
   }
 }
 
-function frameDelay() {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+function frameDelay(fps) {
+  return new Promise((resolve) => setTimeout(resolve, 1000 / (fps || 30)));
 }
