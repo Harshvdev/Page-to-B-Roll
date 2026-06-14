@@ -487,13 +487,7 @@ function updateTierBadge() {
 
 async function updateExportCounter() {
   const counter = document.getElementById('export-counter');
-  const isFree = licenseState.tier === TIER.FREE;
-  if (isFree) {
-    const remaining = await getRemainingFreeExports();
-    counter.textContent = remaining + ' free exports remaining this month';
-  } else {
-    counter.textContent = 'Unlimited exports';
-  }
+  counter.textContent = 'Unlimited exports';
 }
 
 function selectScene(sceneId) {
