@@ -19,6 +19,14 @@
         overlay.deactivate();
         break;
 
+      case 'HIDE_OVERLAY':
+        if (typeof overlay.hide === 'function') overlay.hide();
+        break;
+
+      case 'SHOW_OVERLAY':
+        if (typeof overlay.show === 'function') overlay.show();
+        break;
+
       case 'GET_PAGE_DIMENSIONS':
         sendResponse({
           pageWidth: document.documentElement.scrollWidth || document.body.scrollWidth,

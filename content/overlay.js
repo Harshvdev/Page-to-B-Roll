@@ -41,6 +41,8 @@
       const rect = range.getBoundingClientRect();
       if (!rect || rect.width === 0 || rect.height === 0) return;
 
+      const wordRects = getWordRectsForRange(range);
+
       showMenu(rect, {
         text: selection.toString().trim(),
         scrollX: window.scrollX,
@@ -53,6 +55,7 @@
         clientY: rect.top,
         rectWidth: rect.width,
         rectHeight: rect.height,
+        wordRects: wordRects,
       });
     };
 
@@ -90,6 +93,7 @@
           y: selectionData.clientY + selectionData.scrollY,
           width: selectionData.rectWidth,
           height: selectionData.rectHeight,
+          wordRects: selectionData.wordRects || [],
         },
         scrollX: selectionData.scrollX,
         scrollY: selectionData.scrollY,
@@ -171,6 +175,90 @@
     sceneRects = [];
   }
 
+  function hide() {
+    if (root) {
+      root.style.display = 'none';
+    }
+  }
+
+  function show() {
+    if (root) {
+      root.style.display = '';
+    }
+  }
+
+  function getWordRectsForRange(range) {
+    const rects = [];
+    const container = range.commonAncestorContainer;
+    const doc = container.ownerDocument || document;
+
+    if (container.nodeType === Node.TEXT_NODE) {
+      getWordsFromTextNode(container, range.startOffset, range.endOffset, rects);
+      return rects;
+    }
+
+    const treeWalker = doc.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let node;
+    while ((node = treeWalker.nextNode())) {
+      const nodeRange = doc.createRange();
+      try {
+        nodeRange.selectNodeContents(node);
+        const startsAfterRangeEnd = range.compareBoundaryPoints(Range.END_TO_START, nodeRange) > 0;
+        const endsBeforeRangeStart = range.compareBoundaryPoints(Range.START_TO_END, nodeRange) < 0;
+        if (startsAfterRangeEnd || endsBeforeRangeStart) {
+          continue;
+        }
+
+        let startIdx = 0;
+        let endIdx = node.nodeValue.length;
+
+        if (node === range.startContainer) {
+          startIdx = range.startOffset;
+        }
+        if (node === range.endContainer) {
+          endIdx = range.endOffset;
+        }
+
+        getWordsFromTextNode(node, startIdx, endIdx, rects);
+      } catch (e) {
+        console.error('[Broll] Error traversing text node:', e);
+      }
+    }
+    return rects;
+  }
+
+  function getWordsFromTextNode(node, startIdx, endIdx, rects) {
+    const text = node.nodeValue;
+    const regex = /[^\s]+/g;
+    let match;
+    const textSegment = text.substring(startIdx, endIdx);
+    while ((match = regex.exec(textSegment)) !== null) {
+      const wordStart = startIdx + match.index;
+      const wordEnd = wordStart + match[0].length;
+
+      const wordRange = node.ownerDocument.createRange();
+      wordRange.setStart(node, wordStart);
+      wordRange.setEnd(node, wordEnd);
+
+      const clientRect = wordRange.getBoundingClientRect();
+      if (clientRect && clientRect.width > 0 && clientRect.height > 0) {
+        rects.push({
+          word: match[0],
+          x: clientRect.left + window.scrollX,
+          y: clientRect.top + window.scrollY,
+          width: clientRect.width,
+          height: clientRect.height,
+        });
+      }
+    }
+  }
+
   function destroy() {
     deactivate();
     clearSceneRects();
@@ -188,5 +276,7 @@
     addSceneRect: addSceneRect,
     clearSceneRects: clearSceneRects,
     destroy: destroy,
+    hide: hide,
+    show: show,
   };
 })();

@@ -325,6 +325,7 @@ function buildScene(data) {
       pageHeight: data.pageHeight || 0,
       viewportWidth: data.viewportWidth || 0,
       viewportHeight: data.viewportHeight || 0,
+      wordRects: rect.wordRects || [],
     },
     presetId: PRESET.HIGHLIGHT_ZOOM,
     duration: DEFAULTS.SCENE_DURATION,

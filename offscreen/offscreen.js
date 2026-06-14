@@ -49,6 +49,19 @@ async function handleRenderVideo(payload, sendResponse) {
     if (isVideo) {
       const mimeType = getSupportedMimeType();
       console.log('[Broll Offscreen] Using MIME type: ' + mimeType);
+      
+      // Render the first frame before starting recorder
+      if (scenes.length > 0) {
+        const firstScene = scenes[0];
+        const firstSceneFrames = Math.ceil(firstScene.duration * fps);
+        const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
+        const renderBrandKit = {
+          ...brandKit,
+          watermark: useWatermark,
+        };
+        renderFrame(ctx, imageBitmap, firstScene, 0, firstSceneFrames, renderBrandKit, null);
+      }
+
       recorder = startRecording(canvas, mimeType);
     }
 
@@ -105,9 +118,7 @@ async function handleRenderVideo(payload, sendResponse) {
     let filename = 'broll-video.webm';
 
     if (isVideo) {
-      console.log('[Broll Offscreen] All frames rendered, waiting for final encoding chunks');
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      console.log('[Broll Offscreen] Stopping recording');
+      console.log('[Broll Offscreen] All frames rendered, stopping recording');
       blob = await stopRecording(recorder);
       filename = brandKit.exportFormat === 'mp4' ? 'broll-video.mp4' : 'broll-video.webm';
     } else if (brandKit.exportFormat === 'gif') {

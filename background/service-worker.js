@@ -102,6 +102,10 @@ async function captureFullPage(tabId) {
   if (!targetTabId) throw new Error('[Broll SW] No active tab found for capture');
 
   console.log('[Broll SW] captureFullPage starting for tabId:', targetTabId);
+  
+  // Hide overlay during capture
+  await chrome.tabs.sendMessage(targetTabId, { type: 'HIDE_OVERLAY' }).catch(() => {});
+
   const dims = await chrome.tabs.sendMessage(targetTabId, { type: MSG.GET_PAGE_DIMENSIONS });
   console.log('[Broll SW] Page dimensions:', dims);
   const pageWidth = dims.pageWidth;
@@ -134,6 +138,10 @@ async function captureFullPage(tabId) {
   }
 
   await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: 0 } });
+  
+  // Show overlay again after capture
+  await chrome.tabs.sendMessage(targetTabId, { type: 'SHOW_OVERLAY' }).catch(() => {});
+
   console.log('[Broll SW] captureFullPage done, strips:', strips.length);
 
   return { strips, pageWidth, pageHeight, devicePixelRatio: dpr };
