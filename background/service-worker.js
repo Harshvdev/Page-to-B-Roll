@@ -118,13 +118,16 @@ async function pingOffscreen() {
 async function ensureOffscreenDocument() {
   try {
     const exists = await chrome.offscreen.hasDocument();
-    if (!exists) {
-      await chrome.offscreen.createDocument({
-        url: chrome.runtime.getURL('offscreen/offscreen.html'),
-        reasons: ['BLOBS'],
-        justification: 'Rendering video frames to canvas',
-      });
+    if (exists) {
+      console.log('[Broll SW] Closing existing offscreen document to ensure fresh load');
+      await chrome.offscreen.closeDocument();
     }
+    console.log('[Broll SW] Creating fresh offscreen document');
+    await chrome.offscreen.createDocument({
+      url: chrome.runtime.getURL('offscreen/offscreen.html'),
+      reasons: ['BLOBS', 'AUDIO_PLAYBACK'],
+      justification: 'Rendering video frames to canvas with audio support to prevent background throttling',
+    });
   } catch (err) {
     console.error('ensureOffscreenDocument error:', err);
   }
@@ -280,12 +283,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.payload.scenes && message.payload.scenes.length > 0) {
           tabId = message.payload.scenes[0].tabId || activeTabId;
         }
+        await chrome.storage.local.set({
+          [STORAGE.EXPORT_ACTIVE]: true,
+          [STORAGE.EXPORT_PROGRESS]: 0,
+          [STORAGE.EXPORT_STATUS]: 'Initializing capture...',
+        });
         console.log('[Broll SW] Starting full-page capture for tabId:', tabId);
         const captureResult = await captureFullPage(tabId);
 
         console.log('[Broll SW] Ensuring offscreen document');
         await ensureOffscreenDocument();
-        await pingOffscreen();
+        const ready = await pingOffscreen();
+        if (!ready) {
+          throw new Error('Offscreen document failed to initialize');
+        }
 
         const renderJob = {
           scenes: message.payload.scenes,
@@ -311,11 +322,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === MSG.RENDER_PROGRESS) {
+    (async () => {
+      await chrome.storage.local.set({
+        [STORAGE.EXPORT_PROGRESS]: message.payload.percent,
+        [STORAGE.EXPORT_STATUS]: message.payload.status,
+      }).catch(() => {});
+    })();
     return false;
   }
 
   if (type === MSG.RENDER_COMPLETE) {
     (async () => {
+      await chrome.storage.local.remove([
+        STORAGE.EXPORT_ACTIVE,
+        STORAGE.EXPORT_PROGRESS,
+        STORAGE.EXPORT_STATUS
+      ]).catch(() => {});
       await incrementExportCount();
       const { blobUrl, filename } = message.payload;
       console.log('[Broll SW] Initiating download of:', filename);
@@ -346,6 +368,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (type === MSG.RENDER_ERROR) {
     (async () => {
+      await chrome.storage.local.remove([
+        STORAGE.EXPORT_ACTIVE,
+        STORAGE.EXPORT_PROGRESS,
+        STORAGE.EXPORT_STATUS
+      ]).catch(() => {});
       await closeOffscreenDocument();
     })();
     return false;

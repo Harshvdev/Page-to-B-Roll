@@ -5,6 +5,37 @@ import { startRecording, stopRecording, getSupportedMimeType, exportGif, exportP
 
 let canvas = null;
 let ctx = null;
+let isCancelled = false;
+let audioCtx = null;
+
+function startSilentAudio() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      console.log('[Broll Offscreen] Silent audio started to prevent throttling');
+    }
+  } catch (err) {
+    console.error('[Broll Offscreen] Failed to start silent audio:', err);
+  }
+}
+
+function stopSilentAudio() {
+  try {
+    if (audioCtx) {
+      audioCtx.close();
+      audioCtx = null;
+      console.log('[Broll Offscreen] Silent audio stopped');
+    }
+  } catch (err) {
+    console.error('[Broll Offscreen] Failed to stop silent audio:', err);
+  }
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'PING') {
@@ -16,6 +47,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleRenderVideo(message.payload, sendResponse);
     return true;
   }
+  if (message.type === 'CANCEL_RENDER') {
+    console.log('[Broll Offscreen] CANCEL_RENDER received, aborting render');
+    isCancelled = true;
+    sendResponse({ success: true });
+    return false;
+  }
   return false;
 });
 
@@ -26,7 +63,10 @@ function getCanvasBlob(canvas, mimeType) {
 }
 
 async function handleRenderVideo(payload, sendResponse) {
+  let recorder = null;
   try {
+    isCancelled = false;
+    startSilentAudio();
     const { scenes, strips, brandKit, pageWidth, pageHeight, devicePixelRatio, fps } = payload;
     console.log('[Broll Offscreen] handleRenderVideo: scenes=' + scenes.length + ' strips=' + (strips ? strips.length : 0) + ' page=' + pageWidth + 'x' + pageHeight + ' dpr=' + devicePixelRatio);
 
@@ -44,7 +84,6 @@ async function handleRenderVideo(payload, sendResponse) {
     console.log('[Broll Offscreen] Stitched bitmap size: ' + imageBitmap.width + 'x' + imageBitmap.height);
 
     const isVideo = brandKit.exportFormat === 'mp4' || brandKit.exportFormat === 'webm' || !brandKit.exportFormat;
-    let recorder = null;
 
     if (isVideo) {
       const mimeType = getSupportedMimeType();
@@ -81,6 +120,9 @@ async function handleRenderVideo(payload, sendResponse) {
       console.log('[Broll Offscreen] Rendering scene ' + (s + 1) + '/' + scenes.length + ' frames: ' + sceneFrames);
 
       for (let f = 0; f < sceneFrames; f++) {
+        if (isCancelled) {
+          throw new Error('Render cancelled by user');
+        }
         const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
         const renderBrandKit = {
           ...brandKit,
@@ -160,11 +202,21 @@ async function handleRenderVideo(payload, sendResponse) {
     console.log('[Broll Offscreen] sendResponse success sent');
   } catch (err) {
     console.error('[Broll Offscreen] Render error:', err);
+    if (recorder && recorder.state === 'recording') {
+      try {
+        recorder.stop();
+        if (recorder._stream) {
+          recorder._stream.getTracks().forEach(track => track.stop());
+        }
+      } catch (e) {}
+    }
     chrome.runtime.sendMessage({
       type: MSG.RENDER_ERROR,
       payload: { message: err.message || 'Unknown render error' },
     }).catch(() => {});
     sendResponse({ success: false, error: err.message });
+  } finally {
+    stopSilentAudio();
   }
 }
 

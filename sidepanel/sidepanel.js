@@ -40,6 +40,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateTierBadge();
   updateExportCounter();
   setupEventListeners();
+
+  const storedExport = await chrome.storage.local.get([
+    STORAGE.EXPORT_ACTIVE,
+    STORAGE.EXPORT_PROGRESS,
+    STORAGE.EXPORT_STATUS
+  ]);
+  if (storedExport[STORAGE.EXPORT_ACTIVE]) {
+    setExportingUI(
+      storedExport[STORAGE.EXPORT_PROGRESS] || 0,
+      storedExport[STORAGE.EXPORT_STATUS] || 'Rendering...'
+    );
+  } else {
+    resetExportUI();
+  }
 });
 
 function setupEventListeners() {
@@ -174,22 +188,72 @@ function onWatermarkToggle(e) {
   saveBrandKit(brandKit);
 }
 
+function setExportingUI(progressVal, statusMsg) {
+  const btn = document.getElementById('btn-export');
+  const progress = document.getElementById('export-progress');
+  const statusText = document.getElementById('export-status');
+  
+  if (btn) {
+    btn.textContent = 'Cancel Export';
+    btn.classList.add('cancelling');
+    btn.disabled = false;
+  }
+  if (progress) {
+    progress.style.display = 'block';
+    progress.value = progressVal;
+  }
+  if (statusText) {
+    statusText.style.display = 'block';
+    statusText.textContent = statusMsg;
+  }
+}
+
+function resetExportUI() {
+  const btn = document.getElementById('btn-export');
+  const progress = document.getElementById('export-progress');
+  const statusText = document.getElementById('export-status');
+
+  if (btn) {
+    btn.textContent = 'Export Video';
+    btn.classList.remove('cancelling');
+    btn.disabled = false;
+  }
+  if (progress) {
+    progress.style.display = 'none';
+  }
+  if (statusText) {
+    statusText.style.display = 'none';
+  }
+}
+
+async function cancelExport() {
+  console.log('[Broll Panel] Cancelling export');
+  try {
+    await chrome.runtime.sendMessage({ type: 'CANCEL_RENDER' });
+  } catch (err) {
+    console.error('[Broll Panel] CANCEL_RENDER send error:', err);
+  }
+  resetExportUI();
+  chrome.storage.local.remove([
+    STORAGE.EXPORT_ACTIVE,
+    STORAGE.EXPORT_PROGRESS,
+    STORAGE.EXPORT_STATUS
+  ]).catch(() => {});
+}
+
 async function onExportClick() {
+  const btn = document.getElementById('btn-export');
+  if (btn.classList.contains('cancelling')) {
+    await cancelExport();
+    return;
+  }
+
   if (scenes.length === 0) {
     alert('Add at least one scene before exporting.');
     return;
   }
 
-  const btn = document.getElementById('btn-export');
-  const progress = document.getElementById('export-progress');
-  const statusText = document.getElementById('export-status');
-  btn.disabled = true;
-  progress.style.display = 'block';
-  progress.value = 0;
-  if (statusText) {
-    statusText.style.display = 'block';
-    statusText.textContent = 'Initializing capture...';
-  }
+  setExportingUI(0, 'Initializing capture...');
 
   console.log('[Broll Panel] Sending RENDER_VIDEO, scenes:', scenes.length);
   try {
@@ -204,16 +268,12 @@ async function onExportClick() {
     console.log('[Broll Panel] RENDER_VIDEO response:', response);
     if (response && response.error) {
       console.error('[Broll Panel] Export rejected:', response.error);
-      btn.disabled = false;
-      progress.style.display = 'none';
-      if (statusText) statusText.style.display = 'none';
+      resetExportUI();
       alert('Export failed: ' + response.error);
     }
   } catch (err) {
     console.error('[Broll Panel] RENDER_VIDEO send error:', err);
-    btn.disabled = false;
-    progress.style.display = 'none';
-    if (statusText) statusText.style.display = 'none';
+    resetExportUI();
   }
 }
 
@@ -294,43 +354,24 @@ function onRuntimeMessage(message) {
     const pct = message.payload.percent || 0;
     const status = message.payload.status || '';
     console.log('[Broll Panel] RENDER_PROGRESS: ' + pct + '% - ' + status);
-    const progress = document.getElementById('export-progress');
-    if (progress) {
-      progress.value = pct;
-    }
-    const statusText = document.getElementById('export-status');
-    if (statusText && status) {
-      statusText.textContent = status;
-    }
+    setExportingUI(pct, status);
     return;
   }
 
   if (type === MSG.RENDER_COMPLETE) {
     console.log('[Broll Panel] RENDER_COMPLETE received, blobUrl:', message.payload ? message.payload.blobUrl : 'none');
-    const btn = document.getElementById('btn-export');
-    const progress = document.getElementById('export-progress');
-    const statusText = document.getElementById('export-status');
-    btn.disabled = false;
-    progress.style.display = 'none';
-    if (statusText) {
-      statusText.style.display = 'none';
-    }
-
+    resetExportUI();
     updateExportCounter();
     return;
   }
 
   if (type === MSG.RENDER_ERROR) {
     console.error('[Broll Panel] RENDER_ERROR received:', message.payload);
-    const btn = document.getElementById('btn-export');
-    const progress = document.getElementById('export-progress');
-    const statusText = document.getElementById('export-status');
-    btn.disabled = false;
-    progress.style.display = 'none';
-    if (statusText) {
-      statusText.style.display = 'none';
+    resetExportUI();
+    const errMsg = message.payload ? message.payload.message : 'Unknown error';
+    if (errMsg !== 'Render cancelled by user') {
+      alert('Render error: ' + errMsg);
     }
-    alert('Render error: ' + (message.payload ? message.payload.message : 'Unknown error'));
     return;
   }
 
