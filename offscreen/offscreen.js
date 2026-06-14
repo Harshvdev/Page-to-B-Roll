@@ -7,9 +7,11 @@ let canvas = null;
 let ctx = null;
 let isCancelled = false;
 let audioCtx = null;
+let silentAudioEl = null;
 
 function startSilentAudio() {
   try {
+    // 1. Initialize and try to run AudioContext (Web Audio API)
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
@@ -18,7 +20,23 @@ function startSilentAudio() {
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
-      console.log('[Broll Offscreen] Silent audio started to prevent throttling');
+      console.log('[Broll Offscreen] Silent AudioContext started');
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume()
+        .then(() => console.log('[Broll Offscreen] Silent AudioContext resumed successfully'))
+        .catch(err => console.warn('[Broll Offscreen] AudioContext resume failed:', err));
+    }
+
+    // 2. Play silent audio via HTML5 Audio element to bypass background throttling
+    if (!silentAudioEl) {
+      const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+      silentAudioEl = new Audio(silentWav);
+      silentAudioEl.loop = true;
+      silentAudioEl.volume = 0.01; // extremely quiet but not muted (muting might disable background exemption)
+      silentAudioEl.play()
+        .then(() => console.log('[Broll Offscreen] Silent HTML5 audio playing successfully'))
+        .catch(err => console.error('[Broll Offscreen] Silent HTML5 audio play failed:', err));
     }
   } catch (err) {
     console.error('[Broll Offscreen] Failed to start silent audio:', err);
@@ -30,7 +48,12 @@ function stopSilentAudio() {
     if (audioCtx) {
       audioCtx.close();
       audioCtx = null;
-      console.log('[Broll Offscreen] Silent audio stopped');
+      console.log('[Broll Offscreen] Silent AudioContext stopped');
+    }
+    if (silentAudioEl) {
+      silentAudioEl.pause();
+      silentAudioEl = null;
+      console.log('[Broll Offscreen] Silent HTML5 audio stopped');
     }
   } catch (err) {
     console.error('[Broll Offscreen] Failed to stop silent audio:', err);
@@ -44,8 +67,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === MSG.START_RENDER) {
     console.log('[Broll Offscreen] START_RENDER received, starting render');
-    handleRenderVideo(message.payload, sendResponse);
-    return true;
+    sendResponse({ success: true }); // Unblock service worker immediately
+    handleRenderVideo(message.payload); // Run async
+    return false;
   }
   if (message.type === 'CANCEL_RENDER') {
     console.log('[Broll Offscreen] CANCEL_RENDER received, aborting render');
@@ -62,7 +86,7 @@ function getCanvasBlob(canvas, mimeType) {
   });
 }
 
-async function handleRenderVideo(payload, sendResponse) {
+async function handleRenderVideo(payload) {
   let recorder = null;
   try {
     isCancelled = false;
@@ -198,8 +222,7 @@ async function handleRenderVideo(payload, sendResponse) {
       payload: { blobUrl, filename },
     }).catch(() => {});
 
-    sendResponse({ success: true });
-    console.log('[Broll Offscreen] sendResponse success sent');
+    console.log('[Broll Offscreen] Render complete processed');
   } catch (err) {
     console.error('[Broll Offscreen] Render error:', err);
     if (recorder && recorder.state === 'recording') {
@@ -214,7 +237,6 @@ async function handleRenderVideo(payload, sendResponse) {
       type: MSG.RENDER_ERROR,
       payload: { message: err.message || 'Unknown render error' },
     }).catch(() => {});
-    sendResponse({ success: false, error: err.message });
   } finally {
     stopSilentAudio();
   }
