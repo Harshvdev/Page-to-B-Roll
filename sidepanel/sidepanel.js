@@ -284,9 +284,6 @@ function onRuntimeMessage(message) {
     btn.disabled = false;
     progress.style.display = 'none';
 
-    if (message.payload && message.payload.blobUrl) {
-      chrome.downloads.download({ url: message.payload.blobUrl, filename: 'broll-video.mp4' });
-    }
     updateExportCounter();
     return;
   }

@@ -1,7 +1,7 @@
 import { MSG, DEFAULTS } from '../lib/constants.js';
 import { stitchStrips } from '../lib/capture.js';
 import { renderFrame, getCanvasDimensions } from '../lib/canvas-compositor.js';
-import { startRecording, stopRecording, getSupportedMimeType } from '../lib/export.js';
+import { startRecording, stopRecording, getSupportedMimeType, exportGif, exportPngSequence } from '../lib/export.js';
 
 let canvas = null;
 let ctx = null;
@@ -18,6 +18,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   return false;
 });
+
+function getCanvasBlob(canvas, mimeType) {
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, mimeType);
+  });
+}
 
 async function handleRenderVideo(payload, sendResponse) {
   try {
@@ -37,9 +43,17 @@ async function handleRenderVideo(payload, sendResponse) {
     const imageBitmap = await stitchStrips(strips, pageWidth, pageHeight, devicePixelRatio || 1);
     console.log('[Broll Offscreen] Stitched bitmap size: ' + imageBitmap.width + 'x' + imageBitmap.height);
 
-    const mimeType = getSupportedMimeType();
-    console.log('[Broll Offscreen] Using MIME type: ' + mimeType);
-    const recorder = startRecording(canvas, mimeType);
+    const isVideo = brandKit.exportFormat === 'mp4' || brandKit.exportFormat === 'webm' || !brandKit.exportFormat;
+    let recorder = null;
+
+    if (isVideo) {
+      const mimeType = getSupportedMimeType();
+      console.log('[Broll Offscreen] Using MIME type: ' + mimeType);
+      recorder = startRecording(canvas, mimeType);
+    }
+
+    const gifFrames = [];
+    const pngBuffers = [];
 
     let totalFrames = 0;
     for (const scene of scenes) {
@@ -63,6 +77,14 @@ async function handleRenderVideo(payload, sendResponse) {
         const prevScene = s > 0 ? scenes[s - 1] : null;
         renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit, prevScene);
 
+        if (brandKit.exportFormat === 'gif') {
+          gifFrames.push(ctx.getImageData(0, 0, width, height));
+        } else if (brandKit.exportFormat === 'png_sequence') {
+          const blob = await getCanvasBlob(canvas, 'image/png');
+          const buffer = await blob.arrayBuffer();
+          pngBuffers.push(buffer);
+        }
+
         await frameDelay(fps);
 
         currentFrame++;
@@ -79,17 +101,31 @@ async function handleRenderVideo(payload, sendResponse) {
       }).catch(() => {});
     }
 
-    console.log('[Broll Offscreen] All frames rendered, waiting for final encoding chunks');
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    let blob;
+    let filename = 'broll-video.webm';
 
-    console.log('[Broll Offscreen] Stopping recording');
-    const blob = await stopRecording(recorder);
+    if (isVideo) {
+      console.log('[Broll Offscreen] All frames rendered, waiting for final encoding chunks');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      console.log('[Broll Offscreen] Stopping recording');
+      blob = await stopRecording(recorder);
+      filename = brandKit.exportFormat === 'mp4' ? 'broll-video.mp4' : 'broll-video.webm';
+    } else if (brandKit.exportFormat === 'gif') {
+      console.log('[Broll Offscreen] Compiling GIF from ' + gifFrames.length + ' frames');
+      blob = await exportGif(gifFrames, width, height, fps);
+      filename = 'broll-video.gif';
+    } else if (brandKit.exportFormat === 'png_sequence') {
+      console.log('[Broll Offscreen] Compiling ZIP from ' + pngBuffers.length + ' PNG frames');
+      blob = await exportPngSequence(pngBuffers);
+      filename = 'broll-frames.zip';
+    }
+
     const blobUrl = URL.createObjectURL(blob);
     console.log('[Broll Offscreen] Recording complete, blob URL: ' + blobUrl + ' size: ' + blob.size);
 
     chrome.runtime.sendMessage({
       type: MSG.RENDER_COMPLETE,
-      payload: { blobUrl },
+      payload: { blobUrl, filename },
     }).catch(() => {});
 
     sendResponse({ success: true });

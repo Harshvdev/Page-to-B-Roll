@@ -247,7 +247,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === MSG.RENDER_COMPLETE) {
     (async () => {
       await incrementExportCount();
-      await closeOffscreenDocument();
+      const { blobUrl, filename } = message.payload;
+      console.log('[Broll SW] Initiating download of:', filename);
+
+      chrome.downloads.download({ url: blobUrl, filename: filename }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error('[Broll SW] download failed to start:', chrome.runtime.lastError.message);
+          closeOffscreenDocument();
+          return;
+        }
+
+        const listener = (delta) => {
+          if (delta.id === downloadId && delta.state) {
+            if (delta.state.current === 'complete' || delta.state.current === 'interrupted') {
+              console.log('[Broll SW] Download finished, status:', delta.state.current);
+              chrome.downloads.onChanged.removeListener(listener);
+              setTimeout(() => {
+                closeOffscreenDocument();
+              }, 1000);
+            }
+          }
+        };
+        chrome.downloads.onChanged.addListener(listener);
+      });
+
       forwardToSidePanel(message);
     })();
     return false;
