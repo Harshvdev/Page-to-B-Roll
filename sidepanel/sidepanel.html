@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=380">
+  <title>B-Roll Studio</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <div id="logo">B-Roll Studio</div>
+      <div id="tier-badge">FREE</div>
+    </header>
+
+    <div id="toolbar">
+      <button id="btn-activate">Capture Selection</button>
+      <button id="btn-clear-scenes">Clear All</button>
+    </div>
+
+    <div id="scene-queue">
+      <div id="scene-empty-state">No scenes yet. Activate capture and select text on any webpage.</div>
+    </div>
+
+    <div id="timeline"></div>
+
+    <section id="style-studio">
+      <h3>Style Studio</h3>
+      <div id="no-scene-msg" style="color:#555;font-size:11px;text-align:center;padding:12px 0;display:none">Select a scene to edit its style</div>
+      <div id="preset-grid"></div>
+      <label>Duration <input type="range" id="duration-slider" min="1" max="30" value="4"> <span id="duration-val">4s</span></label>
+      <label>Highlight <input type="color" id="color-highlight" value="#FFEB3B"></label>
+      <label>Box Color  <input type="color" id="color-box" value="#FF5252"></label>
+      <label>Transition
+        <select id="transition-select">
+          <option value="dissolve">Dissolve</option>
+          <option value="cut">Cut</option>
+          <option value="flash">Flash</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="brand-kit">
+      <h3>Brand Kit</h3>
+      <label>Aspect Ratio
+        <select id="aspect-ratio">
+          <option value="16:9">16:9 YouTube</option>
+          <option value="9:16">9:16 Shorts/TikTok</option>
+          <option value="1:1">1:1 Square</option>
+          <option value="4:3">4:3 Classic</option>
+        </select>
+      </label>
+      <label>Resolution
+        <select id="resolution">
+          <option value="1080p">1080p (Free)</option>
+          <option value="2k" class="pro-only">2K (Pro)</option>
+          <option value="4k" class="pro-only">4K (Pro)</option>
+        </select>
+      </label>
+      <label>Logo <input type="file" id="logo-upload" accept="image/png,image/svg+xml"></label>
+      <label>Watermark <input type="checkbox" id="watermark-toggle" checked></label>
+      <label>Export Format
+        <select id="export-format">
+          <option value="mp4">MP4</option>
+          <option value="webm">WebM</option>
+          <option value="gif" class="pro-only">GIF (Pro)</option>
+          <option value="png_sequence" class="pro-only">PNG Sequence (Pro)</option>
+        </select>
+      </label>
+    </section>
+
+    <div id="export-section">
+      <div id="export-counter">5 free exports remaining this month</div>
+      <button id="btn-export">Export Video</button>
+      <progress id="export-progress" value="0" max="100" style="display:none"></progress>
+    </div>
+
+    <section id="license-section">
+      <h3>Unlock Pro</h3>
+      <p>One-time purchase. Unlimited exports, 4K, no watermark.</p>
+      <input type="text" id="license-key-input" placeholder="Enter license key">
+      <button id="btn-activate-license">Activate</button>
+      <div id="license-status"></div>
+    </section>
+
+    <section id="projects-section">
+      <h3>Projects</h3>
+      <button id="btn-save-project">Save Current Project</button>
+      <div id="project-list"></div>
+    </section>
+  </div>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
