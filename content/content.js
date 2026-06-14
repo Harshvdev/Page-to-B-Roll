@@ -47,7 +47,9 @@
         overlay.clearSceneRects();
         if (Array.isArray(message.payload)) {
           message.payload.forEach(function (scene, i) {
-            overlay.addSceneRect(scene, i + 1);
+            if (scene.url === window.location.href) {
+              overlay.addSceneRect(scene, i + 1);
+            }
           });
         }
         break;

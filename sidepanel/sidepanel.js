@@ -1,4 +1,4 @@
-import { MSG, PRESET, DEFAULTS, TIER } from '../lib/constants.js';
+import { MSG, PRESET, DEFAULTS, TIER, STORAGE } from '../lib/constants.js';
 import {
   getScenes, saveScenes, clearScenes,
   getBrandKit, saveBrandKit,
@@ -19,7 +19,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   brandKit = await getBrandKit();
   licenseState = await getLicense();
 
-  console.log('[Broll Panel] Loaded scenes:', scenes.length, 'brandKit:', brandKit, 'license:', licenseState.tier);
+  const storedCapturing = await chrome.storage.local.get(STORAGE.CAPTURING);
+  isCapturing = !!storedCapturing[STORAGE.CAPTURING];
+  const btn = document.getElementById('btn-activate');
+  if (isCapturing) {
+    btn.textContent = 'Stop Capturing';
+    btn.classList.add('active');
+  } else {
+    btn.textContent = 'Capture Selection';
+    btn.classList.remove('active');
+  }
+
+  console.log('[Broll Panel] Loaded scenes:', scenes.length, 'brandKit:', brandKit, 'license:', licenseState.tier, 'isCapturing:', isCapturing);
 
   renderSceneQueue();
   renderTimeline();
@@ -53,6 +64,7 @@ function setupEventListeners() {
 
 async function onActivateClick() {
   isCapturing = !isCapturing;
+  await chrome.storage.local.set({ [STORAGE.CAPTURING]: isCapturing });
   const btn = document.getElementById('btn-activate');
 
   if (isCapturing) {
@@ -170,9 +182,14 @@ async function onExportClick() {
 
   const btn = document.getElementById('btn-export');
   const progress = document.getElementById('export-progress');
+  const statusText = document.getElementById('export-status');
   btn.disabled = true;
   progress.style.display = 'block';
   progress.value = 0;
+  if (statusText) {
+    statusText.style.display = 'block';
+    statusText.textContent = 'Initializing capture...';
+  }
 
   console.log('[Broll Panel] Sending RENDER_VIDEO, scenes:', scenes.length);
   try {
@@ -189,12 +206,14 @@ async function onExportClick() {
       console.error('[Broll Panel] Export rejected:', response.error);
       btn.disabled = false;
       progress.style.display = 'none';
+      if (statusText) statusText.style.display = 'none';
       alert('Export failed: ' + response.error);
     }
   } catch (err) {
     console.error('[Broll Panel] RENDER_VIDEO send error:', err);
     btn.disabled = false;
     progress.style.display = 'none';
+    if (statusText) statusText.style.display = 'none';
   }
 }
 
@@ -251,6 +270,10 @@ function onRuntimeMessage(message) {
   console.log('[Broll Panel] Message received:', type, JSON.stringify(message).substring(0, 200));
 
   if (type === MSG.SELECTION_READY) {
+    if (!message.fromBackground) {
+      console.log('[Broll Panel] SELECTION_READY received directly from content script, ignoring (waiting for background SW enrichment)');
+      return;
+    }
     console.log('[Broll Panel] Building scene from data:', message.data);
     const scene = buildScene(message.data);
     console.log('[Broll Panel] Scene built:', { id: scene.id, text: scene.text, coords: scene.coordinates });
@@ -269,10 +292,15 @@ function onRuntimeMessage(message) {
 
   if (type === MSG.RENDER_PROGRESS) {
     const pct = message.payload.percent || 0;
-    console.log('[Broll Panel] RENDER_PROGRESS: ' + pct + '%');
+    const status = message.payload.status || '';
+    console.log('[Broll Panel] RENDER_PROGRESS: ' + pct + '% - ' + status);
     const progress = document.getElementById('export-progress');
     if (progress) {
       progress.value = pct;
+    }
+    const statusText = document.getElementById('export-status');
+    if (statusText && status) {
+      statusText.textContent = status;
     }
     return;
   }
@@ -281,8 +309,12 @@ function onRuntimeMessage(message) {
     console.log('[Broll Panel] RENDER_COMPLETE received, blobUrl:', message.payload ? message.payload.blobUrl : 'none');
     const btn = document.getElementById('btn-export');
     const progress = document.getElementById('export-progress');
+    const statusText = document.getElementById('export-status');
     btn.disabled = false;
     progress.style.display = 'none';
+    if (statusText) {
+      statusText.style.display = 'none';
+    }
 
     updateExportCounter();
     return;
@@ -292,8 +324,12 @@ function onRuntimeMessage(message) {
     console.error('[Broll Panel] RENDER_ERROR received:', message.payload);
     const btn = document.getElementById('btn-export');
     const progress = document.getElementById('export-progress');
+    const statusText = document.getElementById('export-status');
     btn.disabled = false;
     progress.style.display = 'none';
+    if (statusText) {
+      statusText.style.display = 'none';
+    }
     alert('Render error: ' + (message.payload ? message.payload.message : 'Unknown error'));
     return;
   }

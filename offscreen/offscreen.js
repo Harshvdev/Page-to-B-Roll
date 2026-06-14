@@ -98,38 +98,55 @@ async function handleRenderVideo(payload, sendResponse) {
           pngBuffers.push(buffer);
         }
 
-        await frameDelay(fps);
+        if (isVideo) {
+          await frameDelay(fps);
+        }
 
         currentFrame++;
-        const percent = Math.round((currentFrame / totalFrames) * 100);
+        const percent = 20 + Math.round((currentFrame / totalFrames) * 75);
         chrome.runtime.sendMessage({
           type: MSG.RENDER_PROGRESS,
-          payload: { percent },
+          payload: {
+            percent,
+            status: `Rendering frame ${currentFrame}/${totalFrames} (Scene ${s + 1}/${scenes.length})...`
+          },
         }).catch(() => {});
       }
-
-      chrome.runtime.sendMessage({
-        type: MSG.RENDER_PROGRESS,
-        payload: { percent: Math.round(((s + 1) / scenes.length) * 100) },
-      }).catch(() => {});
     }
 
     let blob;
     let filename = 'broll-video.webm';
 
     if (isVideo) {
+      chrome.runtime.sendMessage({
+        type: MSG.RENDER_PROGRESS,
+        payload: { percent: 96, status: 'Compiling video...' },
+      }).catch(() => {});
       console.log('[Broll Offscreen] All frames rendered, stopping recording');
       blob = await stopRecording(recorder);
       filename = brandKit.exportFormat === 'mp4' ? 'broll-video.mp4' : 'broll-video.webm';
     } else if (brandKit.exportFormat === 'gif') {
+      chrome.runtime.sendMessage({
+        type: MSG.RENDER_PROGRESS,
+        payload: { percent: 96, status: 'Compiling GIF (quantizing colors)...' },
+      }).catch(() => {});
       console.log('[Broll Offscreen] Compiling GIF from ' + gifFrames.length + ' frames');
       blob = await exportGif(gifFrames, width, height, fps);
       filename = 'broll-video.gif';
     } else if (brandKit.exportFormat === 'png_sequence') {
+      chrome.runtime.sendMessage({
+        type: MSG.RENDER_PROGRESS,
+        payload: { percent: 96, status: 'Compiling ZIP archive...' },
+      }).catch(() => {});
       console.log('[Broll Offscreen] Compiling ZIP from ' + pngBuffers.length + ' PNG frames');
       blob = await exportPngSequence(pngBuffers);
       filename = 'broll-frames.zip';
     }
+
+    chrome.runtime.sendMessage({
+      type: MSG.RENDER_PROGRESS,
+      payload: { percent: 100, status: 'Export complete! Downloading...' },
+    }).catch(() => {});
 
     const blobUrl = URL.createObjectURL(blob);
     console.log('[Broll Offscreen] Recording complete, blob URL: ' + blobUrl + ' size: ' + blob.size);

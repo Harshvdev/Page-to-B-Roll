@@ -4,9 +4,53 @@ import { activateKey, canExport, getCachedTier, getRemainingFreeExports } from '
 
 let activeTabId = null;
 
-chrome.tabs.onActivated.addListener((activeInfo) => {
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
   activeTabId = activeInfo.tabId;
   console.log('[Broll SW] activeTabId set to:', activeTabId);
+  try {
+    const tab = await chrome.tabs.get(activeTabId);
+    if (!tab) return;
+
+    // 1. Sync capturing state if active
+    const result = await chrome.storage.local.get(STORAGE.CAPTURING);
+    if (result[STORAGE.CAPTURING]) {
+      console.log('[Broll SW] Capturing is active, sending ACTIVATE_SELECTION to activated tab:', activeTabId);
+      await chrome.tabs.sendMessage(activeTabId, { type: MSG.ACTIVATE_SELECTION }).catch(() => {});
+    }
+
+    // 2. Redraw scene rects for the page
+    const scenesResult = await chrome.storage.local.get(STORAGE.SCENES);
+    const scenes = scenesResult[STORAGE.SCENES];
+    if (Array.isArray(scenes) && scenes.length > 0) {
+      console.log('[Broll SW] Tab activated, sending REDRAW_SCENE_RECTS to tab:', activeTabId);
+      await chrome.tabs.sendMessage(activeTabId, { type: 'REDRAW_SCENE_RECTS', payload: scenes }).catch(() => {});
+    }
+  } catch (err) {
+    console.error('[Broll SW] onActivated handlers error:', err);
+  }
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete') {
+    try {
+      // 1. Sync capturing state if active
+      const result = await chrome.storage.local.get(STORAGE.CAPTURING);
+      if (result[STORAGE.CAPTURING]) {
+        console.log('[Broll SW] Tab updated and completed, sending ACTIVATE_SELECTION to tab:', tabId);
+        await chrome.tabs.sendMessage(tabId, { type: MSG.ACTIVATE_SELECTION }).catch(() => {});
+      }
+      
+      // 2. Redraw scene rects for the page
+      const scenesResult = await chrome.storage.local.get(STORAGE.SCENES);
+      const scenes = scenesResult[STORAGE.SCENES];
+      if (Array.isArray(scenes) && scenes.length > 0) {
+        console.log('[Broll SW] Tab updated and completed, sending REDRAW_SCENE_RECTS to tab:', tabId);
+        await chrome.tabs.sendMessage(tabId, { type: 'REDRAW_SCENE_RECTS', payload: scenes }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('[Broll SW] onUpdated handlers error:', err);
+    }
+  }
 });
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -117,9 +161,19 @@ async function captureFullPage(tabId) {
   console.log('[Broll SW] Capture offsets:', offsets);
   const strips = [];
 
-  for (const scrollY of offsets) {
+  for (let i = 0; i < offsets.length; i++) {
+    const scrollY = offsets[i];
+    const capturePercent = Math.round((i / offsets.length) * 20);
+    forwardToSidePanel({
+      type: MSG.RENDER_PROGRESS,
+      payload: {
+        percent: capturePercent,
+        status: `Capturing page strip ${i + 1}/${offsets.length}...`
+      }
+    });
+
     await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: scrollY } });
-    await sleep(1500);
+    await sleep(800);
     const win = await chrome.tabs.get(targetTabId);
     let dataUrl;
     for (let retry = 0; retry < 3; retry++) {
@@ -136,6 +190,14 @@ async function captureFullPage(tabId) {
     strips.push(base64);
     console.log('[Broll SW] Captured strip at y=' + scrollY + ', base64 length:', base64.length);
   }
+
+  forwardToSidePanel({
+    type: MSG.RENDER_PROGRESS,
+    payload: {
+      percent: 20,
+      status: 'Preparing renderer...'
+    }
+  });
 
   await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: 0 } });
   
@@ -198,6 +260,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.tab) {
       message.data.tabId = sender.tab.id;
     }
+    message.fromBackground = true;
     forwardToSidePanel(message);
     return false;
   }
@@ -248,7 +311,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === MSG.RENDER_PROGRESS) {
-    forwardToSidePanel(message);
     return false;
   }
 
@@ -278,8 +340,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         };
         chrome.downloads.onChanged.addListener(listener);
       });
-
-      forwardToSidePanel(message);
     })();
     return false;
   }
@@ -287,7 +347,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === MSG.RENDER_ERROR) {
     (async () => {
       await closeOffscreenDocument();
-      forwardToSidePanel(message);
     })();
     return false;
   }

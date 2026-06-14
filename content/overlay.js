@@ -209,9 +209,7 @@
       const nodeRange = doc.createRange();
       try {
         nodeRange.selectNodeContents(node);
-        const startsAfterRangeEnd = range.compareBoundaryPoints(Range.END_TO_START, nodeRange) > 0;
-        const endsBeforeRangeStart = range.compareBoundaryPoints(Range.START_TO_END, nodeRange) < 0;
-        if (startsAfterRangeEnd || endsBeforeRangeStart) {
+        if (!range.intersectsNode(node)) {
           continue;
         }
 
