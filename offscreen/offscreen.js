@@ -178,6 +178,9 @@ async function handleRenderVideo(payload) {
             track.requestFrame();
           }
           await frameDelay(fps);
+        } else {
+          // Yield to browser event loop to keep UI responsive and send messages
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
 
         currentFrame++;
@@ -204,12 +207,16 @@ async function handleRenderVideo(payload) {
       blob = await stopRecording(recorder);
       filename = brandKit.exportFormat === 'mp4' ? 'broll-video.mp4' : 'broll-video.webm';
     } else if (brandKit.exportFormat === 'gif') {
-      chrome.runtime.sendMessage({
-        type: MSG.RENDER_PROGRESS,
-        payload: { percent: 96, status: 'Compiling GIF (quantizing colors)...' },
-      }).catch(() => {});
       console.log('[Broll Offscreen] Compiling GIF from ' + gifFrames.length + ' frames');
-      blob = await exportGif(gifFrames, width, height, fps);
+      blob = await exportGif(gifFrames, width, height, fps, async (current, total) => {
+        const percent = 96 + Math.round((current / total) * 3);
+        chrome.runtime.sendMessage({
+          type: MSG.RENDER_PROGRESS,
+          payload: { percent, status: `Compiling GIF (frame ${current}/${total})...` },
+        }).catch(() => {});
+        // Yield to browser event loop
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
       filename = 'broll-video.gif';
     } else if (brandKit.exportFormat === 'png_sequence') {
       chrome.runtime.sendMessage({
