@@ -31,9 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('[Broll Panel] Loaded scenes:', scenes.length, 'brandKit:', brandKit, 'license:', licenseState.tier, 'isCapturing:', isCapturing);
 
-  renderSceneQueue();
-  renderTimeline();
-  renderPresetGrid(null, licenseState.tier === TIER.FREE);
+  if (scenes.length > 0) {
+    selectScene(scenes[0].id);
+  } else {
+    selectScene(null);
+  }
 
   populateBrandKitControls();
   updateTierBadge();
@@ -627,12 +629,14 @@ async function renderProjectList() {
     loadBtn.addEventListener('click', () => {
       scenes = [...proj.scenes];
       brandKit = { ...proj.brandKit };
-      selectedSceneId = null;
       saveScenes(scenes);
       saveBrandKit(brandKit);
       populateBrandKitControls();
-      renderSceneQueue();
-      renderTimeline();
+      if (scenes.length > 0) {
+        selectScene(scenes[0].id);
+      } else {
+        selectScene(null);
+      }
     });
 
     item.appendChild(nameSpan);
