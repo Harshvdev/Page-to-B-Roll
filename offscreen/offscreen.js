@@ -123,7 +123,7 @@ async function handleRenderVideo(payload) {
     };
 
     if (isVideo) {
-      const mimeType = getSupportedMimeType();
+      const mimeType = getSupportedMimeType(brandKit.exportFormat);
       console.log('[Broll Offscreen] Using MIME type: ' + mimeType);
       
       // Render the first frame before starting recorder
@@ -205,7 +205,8 @@ async function handleRenderVideo(payload) {
       }).catch(() => {});
       console.log('[Broll Offscreen] All frames rendered, stopping recording');
       blob = await stopRecording(recorder);
-      filename = brandKit.exportFormat === 'mp4' ? 'broll-video.mp4' : 'broll-video.webm';
+      const actualType = blob.type || recorder.mimeType || '';
+      filename = actualType.includes('mp4') ? 'broll-video.mp4' : 'broll-video.webm';
     } else if (brandKit.exportFormat === 'gif') {
       console.log('[Broll Offscreen] Compiling GIF from ' + gifFrames.length + ' frames');
       blob = await exportGif(gifFrames, width, height, fps, async (current, total) => {
