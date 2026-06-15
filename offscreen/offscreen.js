@@ -108,6 +108,10 @@ async function handleRenderVideo(payload) {
     const imageBitmap = await stitchStrips(strips, pageWidth, pageHeight, devicePixelRatio || 1);
     console.log('[Broll Offscreen] Stitched bitmap size: ' + imageBitmap.width + 'x' + imageBitmap.height);
 
+    if (isCancelled) {
+      throw new Error('Render cancelled by user');
+    }
+
     const isVideo = brandKit.exportFormat === 'mp4' || brandKit.exportFormat === 'webm' || !brandKit.exportFormat;
 
     if (isVideo) {

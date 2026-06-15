@@ -322,6 +322,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === MSG.RENDER_PROGRESS) {
+    forwardToSidePanel(message);
     (async () => {
       await chrome.storage.local.set({
         [STORAGE.EXPORT_PROGRESS]: message.payload.percent,
@@ -339,6 +340,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         STORAGE.EXPORT_STATUS
       ]).catch(() => {});
       await incrementExportCount();
+      forwardToSidePanel(message);
       const { blobUrl, filename } = message.payload;
       console.log('[Broll SW] Initiating download of:', filename);
 
@@ -373,7 +375,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         STORAGE.EXPORT_PROGRESS,
         STORAGE.EXPORT_STATUS
       ]).catch(() => {});
+      forwardToSidePanel(message);
       await closeOffscreenDocument();
+    })();
+    return false;
+  }
+
+  if (type === 'CANCEL_RENDER') {
+    console.log('[Broll SW] CANCEL_RENDER received, forwarding to offscreen');
+    (async () => {
+      try {
+        await chrome.runtime.sendMessage({ type: 'CANCEL_RENDER' });
+      } catch (e) {}
+      await chrome.storage.local.remove([
+        STORAGE.EXPORT_ACTIVE,
+        STORAGE.EXPORT_PROGRESS,
+        STORAGE.EXPORT_STATUS
+      ]).catch(() => {});
     })();
     return false;
   }
