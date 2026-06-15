@@ -94,7 +94,8 @@ async function handleRenderVideo(payload) {
     const { scenes, strips, brandKit, pageWidth, pageHeight, devicePixelRatio, fps } = payload;
     console.log('[Broll Offscreen] handleRenderVideo: scenes=' + scenes.length + ' strips=' + (strips ? strips.length : 0) + ' page=' + pageWidth + 'x' + pageHeight + ' dpr=' + devicePixelRatio);
 
-    const { width, height } = getCanvasDimensions(brandKit.aspectRatio, brandKit.resolution);
+    const canvasDims = getCanvasDimensions(brandKit.aspectRatio, brandKit.resolution);
+    const { width, height } = canvasDims;
     console.log('[Broll Offscreen] Canvas dimensions: ' + width + 'x' + height);
 
     canvas = document.getElementById('render-canvas');
@@ -122,7 +123,7 @@ async function handleRenderVideo(payload) {
           ...brandKit,
           watermark: useWatermark,
         };
-        renderFrame(ctx, imageBitmap, firstScene, 0, firstSceneFrames, renderBrandKit, null);
+        renderFrame(ctx, imageBitmap, firstScene, 0, firstSceneFrames, renderBrandKit, null, canvasDims);
       }
 
       recorder = startRecording(canvas, mimeType);
@@ -138,23 +139,25 @@ async function handleRenderVideo(payload) {
     console.log('[Broll Offscreen] Total frames to render: ' + totalFrames);
     let currentFrame = 0;
 
+    const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
+    const renderBrandKit = {
+      ...brandKit,
+      watermark: useWatermark,
+    };
+
     for (let s = 0; s < scenes.length; s++) {
       const scene = scenes[s];
       const sceneFrames = Math.ceil(scene.duration * fps);
       console.log('[Broll Offscreen] Rendering scene ' + (s + 1) + '/' + scenes.length + ' frames: ' + sceneFrames);
 
+      const prevScene = s > 0 ? scenes[s - 1] : null;
+
       for (let f = 0; f < sceneFrames; f++) {
         if (isCancelled) {
           throw new Error('Render cancelled by user');
         }
-        const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
-        const renderBrandKit = {
-          ...brandKit,
-          watermark: useWatermark,
-        };
 
-        const prevScene = s > 0 ? scenes[s - 1] : null;
-        renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit, prevScene);
+        renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit, prevScene, canvasDims);
 
         if (brandKit.exportFormat === 'gif') {
           gifFrames.push(ctx.getImageData(0, 0, width, height));
@@ -243,5 +246,17 @@ async function handleRenderVideo(payload) {
 }
 
 function frameDelay(fps) {
-  return new Promise((resolve) => setTimeout(resolve, 1000 / (fps || 30)));
+  const delay = 1000 / (fps || 30);
+  return new Promise((resolve) => {
+    const start = performance.now();
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => {
+      if (performance.now() - start >= delay) {
+        resolve();
+      } else {
+        ch.port2.postMessage(null);
+      }
+    };
+    ch.port2.postMessage(null);
+  });
 }
