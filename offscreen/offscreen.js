@@ -88,6 +88,7 @@ function getCanvasBlob(canvas, mimeType) {
 
 async function handleRenderVideo(payload) {
   let recorder = null;
+  let imageBitmap = null;
   try {
     isCancelled = false;
     startSilentAudio();
@@ -105,14 +106,21 @@ async function handleRenderVideo(payload) {
     ctx = canvas.getContext('2d');
 
     console.log('[Broll Offscreen] Stitching strips into image bitmap');
-    const imageBitmap = await stitchStrips(strips, pageWidth, pageHeight, devicePixelRatio || 1);
+    imageBitmap = await stitchStrips(strips, pageWidth, pageHeight, devicePixelRatio || 1);
     console.log('[Broll Offscreen] Stitched bitmap size: ' + imageBitmap.width + 'x' + imageBitmap.height);
 
     if (isCancelled) {
+      imageBitmap.close();
       throw new Error('Render cancelled by user');
     }
 
     const isVideo = brandKit.exportFormat === 'mp4' || brandKit.exportFormat === 'webm' || !brandKit.exportFormat;
+
+    const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
+    const renderBrandKit = {
+      ...brandKit,
+      watermark: useWatermark,
+    };
 
     if (isVideo) {
       const mimeType = getSupportedMimeType();
@@ -122,15 +130,14 @@ async function handleRenderVideo(payload) {
       if (scenes.length > 0) {
         const firstScene = scenes[0];
         const firstSceneFrames = Math.ceil(firstScene.duration * fps);
-        const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
-        const renderBrandKit = {
-          ...brandKit,
-          watermark: useWatermark,
-        };
         renderFrame(ctx, imageBitmap, firstScene, 0, firstSceneFrames, renderBrandKit, null, canvasDims);
       }
 
       recorder = startRecording(canvas, mimeType);
+      const track = recorder._stream.getVideoTracks()[0];
+      if (track && typeof track.requestFrame === 'function') {
+        track.requestFrame();
+      }
     }
 
     const gifFrames = [];
@@ -142,12 +149,6 @@ async function handleRenderVideo(payload) {
     }
     console.log('[Broll Offscreen] Total frames to render: ' + totalFrames);
     let currentFrame = 0;
-
-    const useWatermark = brandKit.watermark !== false || payload.license.tier === 'free';
-    const renderBrandKit = {
-      ...brandKit,
-      watermark: useWatermark,
-    };
 
     for (let s = 0; s < scenes.length; s++) {
       const scene = scenes[s];
@@ -172,6 +173,10 @@ async function handleRenderVideo(payload) {
         }
 
         if (isVideo) {
+          const track = recorder._stream.getVideoTracks()[0];
+          if (track && typeof track.requestFrame === 'function') {
+            track.requestFrame();
+          }
           await frameDelay(fps);
         }
 
@@ -246,6 +251,9 @@ async function handleRenderVideo(payload) {
     }).catch(() => {});
   } finally {
     stopSilentAudio();
+    if (typeof imageBitmap !== 'undefined' && imageBitmap) {
+      imageBitmap.close();
+    }
   }
 }
 
@@ -256,6 +264,8 @@ function frameDelay(fps) {
     const ch = new MessageChannel();
     ch.port1.onmessage = () => {
       if (performance.now() - start >= delay) {
+        ch.port1.close();
+        ch.port2.close();
         resolve();
       } else {
         ch.port2.postMessage(null);

@@ -2,9 +2,8 @@ import { MSG, PRESET, DEFAULTS, TIER, STORAGE } from '../lib/constants.js';
 import {
   getScenes, saveScenes, clearScenes,
   getBrandKit, saveBrandKit,
-  getLicense, getProjects, saveProject, deleteProject, getExportCount,
+  getLicense, getProjects, saveProject,
 } from '../lib/storage.js';
-import { isFreeUser, canExport, getRemainingFreeExports } from '../lib/license.js';
 import { PRESETS } from '../lib/presets.js';
 
 let scenes = [];
@@ -229,7 +228,7 @@ function resetExportUI() {
 async function cancelExport() {
   console.log('[Broll Panel] Cancelling export');
   try {
-    await chrome.runtime.sendMessage({ type: 'CANCEL_RENDER' });
+    await chrome.runtime.sendMessage({ type: MSG.CANCEL_RENDER });
   } catch (err) {
     console.error('[Broll Panel] CANCEL_RENDER send error:', err);
   }
@@ -380,7 +379,7 @@ function onRuntimeMessage(message) {
 
 function forwardRedrawSceneRects() {
   chrome.runtime.sendMessage({
-    type: 'REDRAW_SCENE_RECTS',
+    type: MSG.REDRAW_SCENE_RECTS,
     payload: scenes,
   }).catch(function (err) {
     console.error('[Broll Panel] forwardRedrawSceneRects error:', err);

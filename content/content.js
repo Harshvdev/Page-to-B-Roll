@@ -1,9 +1,19 @@
 ;(function () {
   'use strict';
 
+  var MSG_TYPES = {
+    ACTIVATE_SELECTION: 'ACTIVATE_SELECTION',
+    DEACTIVATE_SELECTION: 'DEACTIVATE_SELECTION',
+    HIDE_OVERLAY: 'HIDE_OVERLAY',
+    SHOW_OVERLAY: 'SHOW_OVERLAY',
+    GET_PAGE_DIMENSIONS: 'GET_PAGE_DIMENSIONS',
+    SCROLL_TAB: 'SCROLL_TAB',
+    REDRAW_SCENE_RECTS: 'REDRAW_SCENE_RECTS',
+  };
+
   function handleMessage(message, sender, sendResponse) {
-    const type = message.type;
-    const overlay = window.BrollOverlay;
+    var type = message.type;
+    var overlay = window.BrollOverlay;
 
     if (!overlay) {
       console.error('BrollOverlay not available');
@@ -11,23 +21,23 @@
     }
 
     switch (type) {
-      case 'ACTIVATE_SELECTION':
+      case MSG_TYPES.ACTIVATE_SELECTION:
         overlay.activate();
-        break;
+        return false;
 
-      case 'DEACTIVATE_SELECTION':
+      case MSG_TYPES.DEACTIVATE_SELECTION:
         overlay.deactivate();
-        break;
+        return false;
 
-      case 'HIDE_OVERLAY':
+      case MSG_TYPES.HIDE_OVERLAY:
         if (typeof overlay.hide === 'function') overlay.hide();
-        break;
+        return false;
 
-      case 'SHOW_OVERLAY':
+      case MSG_TYPES.SHOW_OVERLAY:
         if (typeof overlay.show === 'function') overlay.show();
-        break;
+        return false;
 
-      case 'GET_PAGE_DIMENSIONS':
+      case MSG_TYPES.GET_PAGE_DIMENSIONS:
         sendResponse({
           pageWidth: document.documentElement.scrollWidth || document.body.scrollWidth,
           pageHeight: document.documentElement.scrollHeight || document.body.scrollHeight,
@@ -36,14 +46,14 @@
           viewportHeight: window.innerHeight,
           devicePixelRatio: window.devicePixelRatio || 1,
         });
-        break;
+        return true;
 
-      case 'SCROLL_TAB':
+      case MSG_TYPES.SCROLL_TAB:
         window.scrollTo({ top: message.payload.y, behavior: 'instant' });
         sendResponse({ type: 'SCROLL_COMPLETE' });
-        break;
+        return true;
 
-      case 'REDRAW_SCENE_RECTS':
+      case MSG_TYPES.REDRAW_SCENE_RECTS:
         overlay.clearSceneRects();
         if (Array.isArray(message.payload)) {
           message.payload.forEach(function (scene, i) {
@@ -52,13 +62,11 @@
             }
           });
         }
-        break;
+        return false;
 
       default:
-        break;
+        return false;
     }
-
-    return true;
   }
 
   function init() {

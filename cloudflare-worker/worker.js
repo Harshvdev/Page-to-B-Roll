@@ -50,19 +50,24 @@ export default {
         });
       }
 
-      const parts = key.split('-');
-      if (parts.length !== 3 || parts[0] !== 'BROLL') {
+      const firstDash = key.indexOf('-');
+      const lastDash = key.lastIndexOf('-');
+      if (firstDash === -1 || firstDash === lastDash || key.substring(0, firstDash) !== 'BROLL') {
         return new Response(JSON.stringify({ valid: false }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
         });
       }
 
-      const [, payloadB64, sig] = parts;
+      const prefix = key.substring(0, firstDash);
+      const payloadB64 = key.substring(firstDash + 1, lastDash);
+      const sig = key.substring(lastDash + 1);
 
       let parsed;
       try {
-        const decoded = atob(payloadB64);
+        const base64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const decoded = atob(padded);
         parsed = JSON.parse(decoded);
       } catch {
         return new Response(JSON.stringify({ valid: false }), {
@@ -84,19 +89,15 @@ export default {
       );
 
       const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-      const hashArray = Array.from(new Uint8Array(signature));
-      const computedSig = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
-
-      if (computedSig.length !== sig.length) {
-        return new Response(JSON.stringify({ valid: false }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
+      const sigBytes = new Uint8Array(signature);
+      const expectedSigBytes = new Uint8Array(sig.length / 2);
+      for (let i = 0; i < expectedSigBytes.length; i++) {
+        expectedSigBytes[i] = parseInt(sig.substring(i * 2, i * 2 + 2), 16);
       }
 
-      let sigMatch = true;
-      for (let i = 0; i < sig.length; i++) {
-        if (computedSig[i] !== sig[i]) sigMatch = false;
+      let sigMatch = sigBytes.length >= expectedSigBytes.length;
+      for (let i = 0; i < expectedSigBytes.length && sigMatch; i++) {
+        if (sigBytes[i] !== expectedSigBytes[i]) sigMatch = false;
       }
 
       if (!sigMatch || parsed.exp <= Date.now()) {

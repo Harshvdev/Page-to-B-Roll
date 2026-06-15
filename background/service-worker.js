@@ -1,8 +1,10 @@
 import { MSG, STORAGE, DEFAULTS } from '../lib/constants.js';
-import { getLicense, saveLicense, incrementExportCount } from '../lib/storage.js';
+import { incrementExportCount } from '../lib/storage.js';
 import { activateKey, canExport, getCachedTier, getRemainingFreeExports } from '../lib/license.js';
+import { calculateStripOffsets } from '../lib/capture.js';
 
 let activeTabId = null;
+let exportGeneration = 0;
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   activeTabId = activeInfo.tabId;
@@ -23,7 +25,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const scenes = scenesResult[STORAGE.SCENES];
     if (Array.isArray(scenes) && scenes.length > 0) {
       console.log('[Broll SW] Tab activated, sending REDRAW_SCENE_RECTS to tab:', activeTabId);
-      await chrome.tabs.sendMessage(activeTabId, { type: 'REDRAW_SCENE_RECTS', payload: scenes }).catch(() => {});
+      await chrome.tabs.sendMessage(activeTabId, { type: MSG.REDRAW_SCENE_RECTS, payload: scenes }).catch(() => {});
     }
   } catch (err) {
     console.error('[Broll SW] onActivated handlers error:', err);
@@ -45,7 +47,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       const scenes = scenesResult[STORAGE.SCENES];
       if (Array.isArray(scenes) && scenes.length > 0) {
         console.log('[Broll SW] Tab updated and completed, sending REDRAW_SCENE_RECTS to tab:', tabId);
-        await chrome.tabs.sendMessage(tabId, { type: 'REDRAW_SCENE_RECTS', payload: scenes }).catch(() => {});
+        await chrome.tabs.sendMessage(tabId, { type: MSG.REDRAW_SCENE_RECTS, payload: scenes }).catch(() => {});
       }
     } catch (err) {
       console.error('[Broll SW] onUpdated handlers error:', err);
@@ -69,21 +71,6 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-function calculateStripOffsets(pageHeight, viewportHeight) {
-  const offsets = [];
-  const maxScroll = Math.max(0, pageHeight - viewportHeight);
-  const step = viewportHeight * 0.9;
-  let y = 0;
-  while (y < maxScroll) {
-    offsets.push(Math.round(y));
-    y += step;
-  }
-  if (offsets.length === 0 || offsets[offsets.length - 1] < maxScroll) {
-    offsets.push(Math.round(maxScroll));
-  }
-  return offsets;
-}
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -101,7 +88,7 @@ async function getActiveTabId() {
 async function pingOffscreen() {
   for (let i = 0; i < 15; i++) {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'PING' });
+      const response = await chrome.runtime.sendMessage({ type: MSG.PING });
       if (response && response.pong) {
         console.log('[Broll SW] Offscreen document is ready (ping successful)');
         return true;
@@ -151,7 +138,7 @@ async function captureFullPage(tabId) {
   console.log('[Broll SW] captureFullPage starting for tabId:', targetTabId);
   
   // Hide overlay during capture
-  await chrome.tabs.sendMessage(targetTabId, { type: 'HIDE_OVERLAY' }).catch(() => {});
+  await chrome.tabs.sendMessage(targetTabId, { type: MSG.HIDE_OVERLAY }).catch(() => {});
 
   const dims = await chrome.tabs.sendMessage(targetTabId, { type: MSG.GET_PAGE_DIMENSIONS });
   console.log('[Broll SW] Page dimensions:', dims);
@@ -178,6 +165,7 @@ async function captureFullPage(tabId) {
     await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: scrollY } });
     await sleep(800);
     const win = await chrome.tabs.get(targetTabId);
+    if (!win) throw new Error('Tab closed during capture');
     let dataUrl;
     for (let retry = 0; retry < 3; retry++) {
       try {
@@ -205,7 +193,7 @@ async function captureFullPage(tabId) {
   await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: 0 } });
   
   // Show overlay again after capture
-  await chrome.tabs.sendMessage(targetTabId, { type: 'SHOW_OVERLAY' }).catch(() => {});
+  await chrome.tabs.sendMessage(targetTabId, { type: MSG.SHOW_OVERLAY }).catch(() => {});
 
   console.log('[Broll SW] captureFullPage done, strips:', strips.length);
 
@@ -269,6 +257,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === MSG.RENDER_VIDEO) {
+    exportGeneration++;
     console.log('[Broll SW] RENDER_VIDEO received from side panel');
     (async () => {
       try {
@@ -333,7 +322,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === MSG.RENDER_COMPLETE) {
+    const gen = exportGeneration;
     (async () => {
+      if (gen !== exportGeneration) return;
       await chrome.storage.local.remove([
         STORAGE.EXPORT_ACTIVE,
         STORAGE.EXPORT_PROGRESS,
@@ -347,7 +338,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.downloads.download({ url: blobUrl, filename: filename }, (downloadId) => {
         if (chrome.runtime.lastError) {
           console.error('[Broll SW] download failed to start:', chrome.runtime.lastError.message);
-          closeOffscreenDocument();
+          if (gen === exportGeneration) closeOffscreenDocument();
           return;
         }
 
@@ -356,20 +347,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (delta.state.current === 'complete' || delta.state.current === 'interrupted') {
               console.log('[Broll SW] Download finished, status:', delta.state.current);
               chrome.downloads.onChanged.removeListener(listener);
+              clearTimeout(failsafeTimer);
               setTimeout(() => {
-                closeOffscreenDocument();
+                if (gen === exportGeneration) closeOffscreenDocument();
               }, 1000);
             }
           }
         };
         chrome.downloads.onChanged.addListener(listener);
+        const failsafeTimer = setTimeout(() => {
+          console.warn('[Broll SW] Download listener timeout, cleaning up');
+          chrome.downloads.onChanged.removeListener(listener);
+          if (gen === exportGeneration) closeOffscreenDocument();
+        }, 30000); // 30s failsafe timer
       });
     })();
     return false;
   }
 
   if (type === MSG.RENDER_ERROR) {
+    const gen = exportGeneration;
     (async () => {
+      if (gen !== exportGeneration) return;
       await chrome.storage.local.remove([
         STORAGE.EXPORT_ACTIVE,
         STORAGE.EXPORT_PROGRESS,
@@ -381,11 +380,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  if (type === 'CANCEL_RENDER') {
+  if (type === MSG.CANCEL_RENDER) {
     console.log('[Broll SW] CANCEL_RENDER received, forwarding to offscreen');
     (async () => {
       try {
-        await chrome.runtime.sendMessage({ type: 'CANCEL_RENDER' });
+        await chrome.runtime.sendMessage({ type: MSG.CANCEL_RENDER });
       } catch (e) {}
       await chrome.storage.local.remove([
         STORAGE.EXPORT_ACTIVE,
@@ -396,7 +395,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  if (type === 'REDRAW_SCENE_RECTS') {
+  if (type === MSG.REDRAW_SCENE_RECTS) {
     (async () => {
       const tabId = await getActiveTabId();
       forwardToContent(tabId, message);
