@@ -162,6 +162,7 @@ async function handleRenderVideo(payload) {
           throw new Error('Render cancelled by user');
         }
 
+        const frameStart = performance.now();
         renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit, prevScene, canvasDims);
 
         if (brandKit.exportFormat === 'gif') {
@@ -177,7 +178,10 @@ async function handleRenderVideo(payload) {
           if (track && typeof track.requestFrame === 'function') {
             track.requestFrame();
           }
-          await frameDelay(fps);
+          const elapsed = performance.now() - frameStart;
+          const targetDelay = 1000 / fps;
+          const remainingDelay = Math.max(0, targetDelay - elapsed);
+          await new Promise(resolve => setTimeout(resolve, remainingDelay));
         } else {
           // Yield to browser event loop to keep UI responsive and send messages
           await new Promise(resolve => setTimeout(resolve, 0));
@@ -267,18 +271,5 @@ async function handleRenderVideo(payload) {
 
 function frameDelay(fps) {
   const delay = 1000 / (fps || 30);
-  return new Promise((resolve) => {
-    const start = performance.now();
-    const ch = new MessageChannel();
-    ch.port1.onmessage = () => {
-      if (performance.now() - start >= delay) {
-        ch.port1.close();
-        ch.port2.close();
-        resolve();
-      } else {
-        ch.port2.postMessage(null);
-      }
-    };
-    ch.port2.postMessage(null);
-  });
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }

@@ -62,6 +62,8 @@ function setupEventListeners() {
   document.getElementById('btn-activate').addEventListener('click', onActivateClick);
   document.getElementById('btn-clear-scenes').addEventListener('click', onClearScenes);
   document.getElementById('duration-slider').addEventListener('input', onDurationChange);
+  document.getElementById('zoom-level-slider').addEventListener('input', onZoomLevelChange);
+  document.getElementById('zoom-duration-slider').addEventListener('input', onZoomDurationChange);
   document.getElementById('color-highlight').addEventListener('input', onHighlightColorChange);
   document.getElementById('color-box').addEventListener('input', onBoxColorChange);
   document.getElementById('transition-select').addEventListener('change', onTransitionChange);
@@ -76,6 +78,30 @@ function setupEventListeners() {
 
   chrome.runtime.onMessage.addListener(onRuntimeMessage);
   console.log('[Broll Panel] Listeners set up');
+}
+
+function onZoomLevelChange(e) {
+  const val = parseFloat(e.target.value);
+  document.getElementById('zoom-level-val').textContent = val.toFixed(1) + 'x';
+  if (!selectedSceneId) return;
+  const scene = scenes.find(s => s.id === selectedSceneId);
+  if (scene) {
+    scene.zoomLevel = val;
+    saveScenes(scenes);
+    console.log('[Broll Panel] Zoom level set to ' + val + 'x for scene', selectedSceneId);
+  }
+}
+
+function onZoomDurationChange(e) {
+  const val = parseFloat(e.target.value);
+  document.getElementById('zoom-duration-val').textContent = val.toFixed(1) + 's';
+  if (!selectedSceneId) return;
+  const scene = scenes.find(s => s.id === selectedSceneId);
+  if (scene) {
+    scene.zoomDuration = val;
+    saveScenes(scenes);
+    console.log('[Broll Panel] Zoom duration set to ' + val + 's for scene', selectedSceneId);
+  }
 }
 
 async function onActivateClick() {
@@ -409,6 +435,8 @@ function buildScene(data) {
     },
     presetId: PRESET.HIGHLIGHT_ZOOM,
     duration: DEFAULTS.SCENE_DURATION,
+    zoomLevel: DEFAULTS.ZOOM_LEVEL,
+    zoomDuration: DEFAULTS.ZOOM_DURATION,
     text: data.text || '',
     highlightColor: DEFAULTS.HIGHLIGHT_COLOR,
     boxColor: DEFAULTS.BOX_COLOR,
@@ -594,6 +622,8 @@ function updateStyleControlsDisabled() {
     el.style.pointerEvents = hasSelection ? 'auto' : 'none';
   });
   document.getElementById('duration-slider').disabled = !hasSelection;
+  document.getElementById('zoom-level-slider').disabled = !hasSelection;
+  document.getElementById('zoom-duration-slider').disabled = !hasSelection;
   document.getElementById('color-highlight').disabled = !hasSelection;
   document.getElementById('color-box').disabled = !hasSelection;
   document.getElementById('transition-select').disabled = !hasSelection;
@@ -602,6 +632,10 @@ function updateStyleControlsDisabled() {
 function populateStyleControls(scene) {
   document.getElementById('duration-slider').value = scene.duration || DEFAULTS.SCENE_DURATION;
   document.getElementById('duration-val').textContent = (scene.duration || DEFAULTS.SCENE_DURATION) + 's';
+  document.getElementById('zoom-level-slider').value = scene.zoomLevel !== undefined ? scene.zoomLevel : DEFAULTS.ZOOM_LEVEL;
+  document.getElementById('zoom-level-val').textContent = (scene.zoomLevel !== undefined ? scene.zoomLevel : DEFAULTS.ZOOM_LEVEL).toFixed(1) + 'x';
+  document.getElementById('zoom-duration-slider').value = scene.zoomDuration !== undefined ? scene.zoomDuration : DEFAULTS.ZOOM_DURATION;
+  document.getElementById('zoom-duration-val').textContent = (scene.zoomDuration !== undefined ? scene.zoomDuration : DEFAULTS.ZOOM_DURATION).toFixed(1) + 's';
   document.getElementById('color-highlight').value = scene.highlightColor || DEFAULTS.HIGHLIGHT_COLOR;
   document.getElementById('color-box').value = scene.boxColor || DEFAULTS.BOX_COLOR;
   document.getElementById('transition-select').value = scene.transition || 'dissolve';
