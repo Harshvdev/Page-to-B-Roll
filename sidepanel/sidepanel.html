@@ -28,6 +28,19 @@
       <h3>Style Studio</h3>
       <div id="no-scene-msg" style="color:#555;font-size:11px;text-align:center;padding:12px 0;display:none">Select a scene to edit its style</div>
       <div id="preset-grid"></div>
+      <div id="preset-settings-panel" style="display: none; margin-bottom: 12px; padding: 8px 10px; background: #16162a; border: 1px solid #2a2a42; border-radius: 6px;">
+        <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 0; pointer-events: auto;">
+          Highlight Pace
+          <select id="highlight-pace-select" style="width: 140px;">
+            <option value="smooth">Smooth (Ease In-Out)</option>
+            <option value="constant">Constant (Linear)</option>
+            <option value="accelerate">Slow Start (Ease In)</option>
+            <option value="decelerate">Fast Start (Ease Out)</option>
+            <option value="dynamic">Accelerate & Taper</option>
+            <option value="spring">Springy (Bounce)</option>
+          </select>
+        </label>
+      </div>
       <label>Duration <input type="range" id="duration-slider" min="1" max="30" value="4"> <span id="duration-val">4s</span></label>
       <label>Zoom Level <input type="range" id="zoom-level-slider" min="1" max="4" step="0.1" value="1.6"> <span id="zoom-level-val">1.6x</span></label>
       <label>Zoom Duration <input type="range" id="zoom-duration-slider" min="0.1" max="5" step="0.1" value="1.5"> <span id="zoom-duration-val">1.5s</span></label>

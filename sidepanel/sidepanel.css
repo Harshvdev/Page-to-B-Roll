@@ -232,6 +232,9 @@ select {
   cursor: pointer;
   font-size: 10px;
   color: #888;
+  position: relative;
+  min-height: 38px;
+  box-sizing: border-box;
 }
 
 .preset-thumb.selected {
@@ -243,6 +246,33 @@ select {
 .preset-thumb.locked {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.preset-settings-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.preset-thumb.selected .preset-settings-btn {
+  color: #FFEB3B;
+}
+
+.preset-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff !important;
 }
 
 .preset-thumb .lock-icon {

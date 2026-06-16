@@ -67,6 +67,7 @@ function setupEventListeners() {
   document.getElementById('color-highlight').addEventListener('input', onHighlightColorChange);
   document.getElementById('color-box').addEventListener('input', onBoxColorChange);
   document.getElementById('transition-select').addEventListener('change', onTransitionChange);
+  document.getElementById('highlight-pace-select').addEventListener('change', onHighlightPaceChange);
   document.getElementById('aspect-ratio').addEventListener('change', onAspectRatioChange);
   document.getElementById('resolution').addEventListener('change', onResolutionChange);
   document.getElementById('export-format').addEventListener('change', onExportFormatChange);
@@ -101,6 +102,26 @@ function onZoomDurationChange(e) {
     scene.zoomDuration = val;
     saveScenes(scenes);
     console.log('[Broll Panel] Zoom duration set to ' + val + 's for scene', selectedSceneId);
+  }
+}
+
+function onHighlightPaceChange(e) {
+  if (!selectedSceneId) return;
+  const scene = scenes.find(s => s.id === selectedSceneId);
+  if (scene) {
+    scene.highlightPace = e.target.value;
+    saveScenes(scenes);
+    console.log('[Broll Panel] Highlight pace set to ' + e.target.value + ' for scene', selectedSceneId);
+  }
+}
+
+function togglePresetSettings(preset, thumb) {
+  const panel = document.getElementById('preset-settings-panel');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    panel.style.display = 'none';
   }
 }
 
@@ -437,6 +458,7 @@ function buildScene(data) {
     duration: DEFAULTS.SCENE_DURATION,
     zoomLevel: DEFAULTS.ZOOM_LEVEL,
     zoomDuration: DEFAULTS.ZOOM_DURATION,
+    highlightPace: 'smooth',
     text: data.text || '',
     highlightColor: DEFAULTS.HIGHLIGHT_COLOR,
     boxColor: DEFAULTS.BOX_COLOR,
@@ -535,7 +557,6 @@ function renderPresetGrid(selectedPresetId, isFree) {
 
     const nameSpan = document.createElement('span');
     nameSpan.textContent = preset.name;
-
     thumb.appendChild(nameSpan);
 
     if (preset.proOnly) {
@@ -543,6 +564,20 @@ function renderPresetGrid(selectedPresetId, isFree) {
       lock.className = 'lock-icon';
       lock.textContent = 'PRO';
       thumb.appendChild(lock);
+    }
+
+    const hasOverlay = preset.id !== 'scroll_journey' && preset.id !== 'auto_scroll';
+
+    if (preset.id === selectedPresetId && hasOverlay) {
+      const settingsBtn = document.createElement('button');
+      settingsBtn.className = 'preset-settings-btn';
+      settingsBtn.innerHTML = '⚙';
+      settingsBtn.title = 'Configure Preset Pace';
+      settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePresetSettings(preset, thumb);
+      });
+      thumb.appendChild(settingsBtn);
     }
 
     thumb.addEventListener('click', () => {
@@ -553,10 +588,17 @@ function renderPresetGrid(selectedPresetId, isFree) {
       if (selectedSceneId) {
         const scene = scenes.find(s => s.id === selectedSceneId);
         if (scene) {
-          scene.presetId = preset.id;
-          saveScenes(scenes);
-          renderPresetGrid(preset.id, isFree);
-          renderSceneQueue();
+          if (scene.presetId === preset.id) {
+            if (hasOverlay) {
+              togglePresetSettings(preset, thumb);
+            }
+          } else {
+            scene.presetId = preset.id;
+            document.getElementById('preset-settings-panel').style.display = 'none';
+            saveScenes(scenes);
+            renderPresetGrid(preset.id, isFree);
+            renderSceneQueue();
+          }
         }
       }
     });
@@ -601,11 +643,14 @@ function selectScene(sceneId) {
   renderSceneQueue();
   renderTimeline();
 
+  document.getElementById('preset-settings-panel').style.display = 'none';
+
   const scene = sceneId ? scenes.find(s => s.id === sceneId) : null;
   if (scene) {
     populateStyleControls(scene);
     const isFree = licenseState.tier === TIER.FREE;
     renderPresetGrid(scene.presetId, isFree);
+    document.getElementById('highlight-pace-select').value = scene.highlightPace || 'smooth';
   } else {
     updateStyleControlsDisabled();
   }
