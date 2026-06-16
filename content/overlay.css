@@ -1,5 +1,5 @@
 #broll-root {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -17,9 +17,9 @@
 
 .broll-selection-rect {
   fill: #FFEB3B;
+  fill-opacity: 0.35;
   stroke: #FFEB3B;
   stroke-width: 2px;
-  mix-blend-mode: multiply;
 }
 
 .broll-selection-menu {

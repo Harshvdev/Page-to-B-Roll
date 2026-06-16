@@ -17,6 +17,14 @@
   let mouseUpHandler = null;
   let sceneRects = [];
 
+  function updateDimensions() {
+    if (!root) return;
+    const w = document.documentElement.scrollWidth || document.body.scrollWidth;
+    const h = document.documentElement.scrollHeight || document.body.scrollHeight;
+    root.style.width = w + 'px';
+    root.style.height = h + 'px';
+  }
+
   function init() {
     if (document.getElementById(BROLL_ROOT_ID)) return;
     root = document.createElement('div');
@@ -26,6 +34,9 @@
     svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svgLayer.id = BROLL_SVG_ID;
     root.appendChild(svgLayer);
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
   }
 
   function activate() {
@@ -42,6 +53,13 @@
       if (!rect || rect.width === 0 || rect.height === 0) return;
 
       const wordRects = getWordRectsForRange(range);
+      const clientRects = Array.from(range.getClientRects());
+      const lineRects = clientRects.map(r => ({
+        x: r.left + window.scrollX,
+        y: r.top + window.scrollY,
+        width: r.width,
+        height: r.height,
+      }));
 
       showMenu(rect, {
         text: selection.toString().trim(),
@@ -56,6 +74,7 @@
         rectWidth: rect.width,
         rectHeight: rect.height,
         wordRects: wordRects,
+        lineRects: lineRects,
       });
     };
 
@@ -94,6 +113,7 @@
           width: selectionData.rectWidth,
           height: selectionData.rectHeight,
           wordRects: selectionData.wordRects || [],
+          lineRects: selectionData.lineRects || [],
         },
         scrollX: selectionData.scrollX,
         scrollY: selectionData.scrollY,
@@ -144,27 +164,46 @@
 
   function addSceneRect(scene, sceneNumber) {
     if (!svgLayer) init();
+    updateDimensions();
     const c = scene.coordinates;
 
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.dataset.sceneId = scene.id;
 
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('class', RECT_CLASS);
-    rect.setAttribute('x', String(c.x));
-    rect.setAttribute('y', String(c.y));
-    rect.setAttribute('width', String(c.width));
-    rect.setAttribute('height', String(c.height));
-    if (scene.highlightColor) {
-      rect.style.fill = scene.highlightColor;
-      rect.style.stroke = scene.highlightColor;
+    const highlightColor = scene.highlightColor || '#FFEB3B';
+
+    if (c.lineRects && c.lineRects.length > 0) {
+      c.lineRects.forEach(lr => {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', RECT_CLASS);
+        rect.setAttribute('x', String(lr.x));
+        rect.setAttribute('y', String(lr.y));
+        rect.setAttribute('width', String(lr.width));
+        rect.setAttribute('height', String(lr.height));
+        rect.style.fill = highlightColor;
+        rect.style.fillOpacity = '0.35';
+        rect.style.stroke = highlightColor;
+        g.appendChild(rect);
+      });
+    } else {
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('class', RECT_CLASS);
+      rect.setAttribute('x', String(c.x));
+      rect.setAttribute('y', String(c.y));
+      rect.setAttribute('width', String(c.width));
+      rect.setAttribute('height', String(c.height));
+      rect.style.fill = highlightColor;
+      rect.style.fillOpacity = '0.35';
+      rect.style.stroke = highlightColor;
+      g.appendChild(rect);
     }
-    g.appendChild(rect);
 
     const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     badge.setAttribute('class', BADGE_CLASS);
-    badge.setAttribute('x', String(c.x + 4));
-    badge.setAttribute('y', String(c.y + 14));
+    const badgeX = (c.lineRects && c.lineRects.length > 0) ? c.lineRects[0].x : c.x;
+    const badgeY = (c.lineRects && c.lineRects.length > 0) ? c.lineRects[0].y : c.y;
+    badge.setAttribute('x', String(badgeX + 4));
+    badge.setAttribute('y', String(badgeY + 14));
     badge.textContent = String(sceneNumber);
     g.appendChild(badge);
 
@@ -264,6 +303,7 @@
   function destroy() {
     deactivate();
     clearSceneRects();
+    window.removeEventListener('resize', updateDimensions);
     if (root && root.parentNode) {
       root.parentNode.removeChild(root);
     }

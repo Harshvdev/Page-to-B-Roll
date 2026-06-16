@@ -454,6 +454,7 @@ function buildScene(data) {
       viewportWidth: data.viewportWidth || 0,
       viewportHeight: data.viewportHeight || 0,
       wordRects: rect.wordRects || [],
+      lineRects: rect.lineRects || [],
     },
     presetId: PRESET.HIGHLIGHT_ZOOM,
     duration: DEFAULTS.SCENE_DURATION,
