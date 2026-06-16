@@ -155,6 +155,10 @@
     rect.setAttribute('y', String(c.y));
     rect.setAttribute('width', String(c.width));
     rect.setAttribute('height', String(c.height));
+    if (scene.highlightColor) {
+      rect.style.fill = scene.highlightColor;
+      rect.style.stroke = scene.highlightColor;
+    }
     g.appendChild(rect);
 
     const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');

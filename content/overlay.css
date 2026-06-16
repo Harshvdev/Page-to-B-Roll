@@ -16,7 +16,7 @@
 }
 
 .broll-selection-rect {
-  fill: rgba(255, 235, 59, 0.35);
+  fill: #FFEB3B;
   stroke: #FFEB3B;
   stroke-width: 2px;
   mix-blend-mode: multiply;
