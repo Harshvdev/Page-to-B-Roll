@@ -2,7 +2,7 @@ import { MSG, PRESET, DEFAULTS, TIER, STORAGE } from '../lib/constants.js';
 import {
   getScenes, saveScenes, clearScenes,
   getBrandKit, saveBrandKit,
-  getLicense, getProjects, saveProject,
+  getLicense, getProjects, saveProject, deleteProject,
 } from '../lib/storage.js';
 import { PRESETS } from '../lib/presets.js';
 
@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateTierBadge();
   updateExportCounter();
   setupEventListeners();
+  renderProjectList();
 
   const storedExport = await chrome.storage.local.get([
     STORAGE.EXPORT_ACTIVE,
@@ -698,6 +699,10 @@ async function renderProjectList() {
     const nameSpan = document.createElement('span');
     nameSpan.textContent = proj.name;
 
+    const btnGroup = document.createElement('div');
+    btnGroup.style.display = 'flex';
+    btnGroup.style.gap = '4px';
+
     const loadBtn = document.createElement('button');
     loadBtn.textContent = 'Load';
     loadBtn.style.background = '#1e1e30';
@@ -721,8 +726,29 @@ async function renderProjectList() {
       forwardRedrawSceneRects();
     });
 
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '✕';
+    deleteBtn.style.background = '#1e1e30';
+    deleteBtn.style.color = '#ff5252';
+    deleteBtn.style.border = '1px solid #2a2a42';
+    deleteBtn.style.borderRadius = '4px';
+    deleteBtn.style.padding = '2px 6px';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.fontSize = '10px';
+    deleteBtn.title = 'Delete Project';
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm('Are you sure you want to delete this project?')) {
+        await deleteProject(proj.id);
+        renderProjectList();
+      }
+    });
+
+    btnGroup.appendChild(loadBtn);
+    btnGroup.appendChild(deleteBtn);
+
     item.appendChild(nameSpan);
-    item.appendChild(loadBtn);
+    item.appendChild(btnGroup);
     container.appendChild(item);
   });
 }
