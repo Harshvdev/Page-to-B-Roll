@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     selectScene(null);
   }
+  forwardRedrawSceneRects();
 
   populateBrandKitControls();
   updateTierBadge();
@@ -108,6 +109,7 @@ function onClearScenes() {
   renderSceneQueue();
   renderTimeline();
   updateStyleControlsDisabled();
+  forwardRedrawSceneRects();
   console.log('[Broll Panel] Scenes cleared');
 }
 
@@ -637,6 +639,7 @@ async function renderProjectList() {
       } else {
         selectScene(null);
       }
+      forwardRedrawSceneRects();
     });
 
     item.appendChild(nameSpan);
