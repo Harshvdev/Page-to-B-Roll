@@ -208,7 +208,7 @@ LICENSE_STATUS           background → sidepanel  (payload: LicenseState)
 PRESET.HIGHLIGHT_ZOOM   = 'highlight_zoom'
 PRESET.SPOTLIGHT        = 'spotlight'
 PRESET.BOX_CALLOUT      = 'box_callout'
-PRESET.HEADLINE_REVEAL  = 'headline_reveal'
+PRESET.UNDERLINE        = 'underline'
 PRESET.WORD_BY_WORD     = 'word_by_word'
 PRESET.SCROLL_JOURNEY   = 'scroll_journey'
 PRESET.MAGNIFIER        = 'magnifier'        // PRO only
@@ -451,8 +451,8 @@ BOX_CALLOUT: zoom to target → box draws itself around selection
   Keyframes: [{t:0, scale:1.0}, {t:0.4, scale:1.4}, {t:0.5, overlay:'box', op:0},
                {t:0.8, op:1}, {t:1, op:1}]
 
-HEADLINE_REVEAL: extreme zoom on title → glint sweeps across text
-  Keyframes: [{t:0, scale:2.5}, {t:0.3, scale:2.5}, {t:0.4, overlay:'highlight', op:0},
+UNDERLINE: zoom to target → sleek underline draws under selection
+  Keyframes: [{t:0, scale:1.0}, {t:0.4, scale:1.6}, {t:0.5, overlay:'underline', op:0},
                {t:0.8, op:1}, {t:1, op:1}]
 
 WORD_BY_WORD: zoom in → word-by-word highlight progresses with time
