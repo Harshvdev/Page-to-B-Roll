@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('[Broll Panel] DOMContentLoaded');
   scenes = await getScenes();
   brandKit = await getBrandKit();
+  brandKit.watermark = false; // Always keep watermark disabled/off
+  await saveBrandKit(brandKit);
   licenseState = await getLicense();
 
   const storedCapturing = await chrome.storage.local.get(STORAGE.CAPTURING);
@@ -556,6 +558,7 @@ function renderPresetGrid(selectedPresetId, isFree) {
     thumb.className = 'preset-thumb';
     if (preset.id === selectedPresetId) thumb.classList.add('selected');
     if (preset.proOnly && isFree) thumb.classList.add('locked');
+    if (preset.proOnly) thumb.style.display = 'none'; // Hide pro-only presets from the UI
 
     const nameSpan = document.createElement('span');
     nameSpan.textContent = preset.name;
