@@ -92,7 +92,7 @@ async function handleRenderVideo(payload) {
   try {
     isCancelled = false;
     startSilentAudio();
-    const { scenes, strips, brandKit, pageWidth, pageHeight, devicePixelRatio, fps } = payload;
+    const { scenes, strips, actualOffsets, brandKit, pageWidth, pageHeight, devicePixelRatio, fps } = payload;
     console.log('[Broll Offscreen] handleRenderVideo: scenes=' + scenes.length + ' strips=' + (strips ? strips.length : 0) + ' page=' + pageWidth + 'x' + pageHeight + ' dpr=' + devicePixelRatio);
 
     const canvasDims = getCanvasDimensions(brandKit.aspectRatio, brandKit.resolution);
@@ -106,7 +106,7 @@ async function handleRenderVideo(payload) {
     ctx = canvas.getContext('2d');
 
     console.log('[Broll Offscreen] Stitching strips into image bitmap');
-    imageBitmap = await stitchStrips(strips, pageWidth, pageHeight, devicePixelRatio || 1);
+    imageBitmap = await stitchStrips(strips, pageWidth, pageHeight, devicePixelRatio || 1, actualOffsets);
     console.log('[Broll Offscreen] Stitched bitmap size: ' + imageBitmap.width + 'x' + imageBitmap.height);
 
     if (isCancelled) {

@@ -168,6 +168,7 @@ async function captureFullPage(tabId, scenes) {
   const offsets = calculateStripOffsets(captureHeight, viewportHeight);
   console.log('[Broll SW] Capture offsets:', offsets);
   const strips = [];
+  const actualOffsets = [];
 
   for (let i = 0; i < offsets.length; i++) {
     const scrollY = offsets[i];
@@ -180,7 +181,10 @@ async function captureFullPage(tabId, scenes) {
       }
     });
 
-    await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: scrollY } });
+    const scrollResponse = await chrome.tabs.sendMessage(targetTabId, { type: MSG.SCROLL_TAB, payload: { y: scrollY } }).catch(() => {});
+    const actualY = (scrollResponse && typeof scrollResponse.actualY === 'number') ? scrollResponse.actualY : scrollY;
+    actualOffsets.push(actualY);
+
     await sleep(800);
     const win = await chrome.tabs.get(targetTabId);
     if (!win) throw new Error('Tab closed during capture');
@@ -197,7 +201,7 @@ async function captureFullPage(tabId, scenes) {
     }
     const base64 = dataUrl.split(',')[1] || dataUrl;
     strips.push(base64);
-    console.log('[Broll SW] Captured strip at y=' + scrollY + ', base64 length:', base64.length);
+    console.log('[Broll SW] Captured strip at y=' + scrollY + ' (actual=' + actualY + '), base64 length:', base64.length);
   }
 
   forwardToSidePanel({
@@ -215,7 +219,7 @@ async function captureFullPage(tabId, scenes) {
 
   console.log('[Broll SW] captureFullPage done, strips:', strips.length);
 
-  return { strips, pageWidth, pageHeight: captureHeight, devicePixelRatio: dpr };
+  return { strips, actualOffsets, pageWidth, pageHeight: captureHeight, devicePixelRatio: dpr };
 }
 
 async function forwardToContent(tabId, message) {
@@ -310,6 +314,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const renderJob = {
           scenes: message.payload.scenes,
           strips: captureResult.strips,
+          actualOffsets: captureResult.actualOffsets,
           pageWidth: captureResult.pageWidth,
           pageHeight: captureResult.pageHeight,
           devicePixelRatio: captureResult.devicePixelRatio,
