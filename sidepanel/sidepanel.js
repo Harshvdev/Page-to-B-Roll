@@ -511,9 +511,9 @@ function buildScene(data) {
     duration: DEFAULTS.SCENE_DURATION,
     zoomLevel: DEFAULTS.ZOOM_LEVEL,
     zoomDuration: DEFAULTS.ZOOM_DURATION,
-    highlightDelay: 0.5,
-    startDelay: 0.0,
-    pauseDuration: 1.0,
+    highlightDelay: DEFAULTS.HIGHLIGHT_DELAY,
+    startDelay: DEFAULTS.START_DELAY,
+    pauseDuration: DEFAULTS.PAUSE_DURATION,
     highlightPace: 'smooth',
     text: data.text || '',
     highlightColor: DEFAULTS.HIGHLIGHT_COLOR,
@@ -594,7 +594,7 @@ function renderTimeline() {
   scenes.forEach((scene) => {
     const block = document.createElement('div');
     block.className = 'timeline-block' + (scene.id === selectedSceneId ? ' selected' : '');
-    const totalDuration = scene.duration + (scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0);
+    const totalDuration = scene.duration + (scene.pauseDuration !== undefined ? scene.pauseDuration : DEFAULTS.PAUSE_DURATION);
     block.style.width = Math.max(40, totalDuration * 10) + 'px';
     block.textContent = totalDuration + 's';
     block.addEventListener('click', () => selectScene(scene.id));
@@ -671,7 +671,7 @@ function populateBrandKitControls() {
   document.getElementById('export-format').value = brandKit.exportFormat || 'mp4';
   document.getElementById('watermark-toggle').checked = brandKit.watermark !== false;
 
-  const videoEndDelay = brandKit.videoEndDelay !== undefined ? brandKit.videoEndDelay : 2.0;
+  const videoEndDelay = brandKit.videoEndDelay !== undefined ? brandKit.videoEndDelay : 1.0;
   document.getElementById('video-end-delay-slider').value = videoEndDelay;
   document.getElementById('video-end-delay-val').textContent = videoEndDelay.toFixed(1) + 's';
 
@@ -747,11 +747,11 @@ function populateStyleControls(scene) {
   document.getElementById('zoom-level-val').textContent = (scene.zoomLevel !== undefined ? scene.zoomLevel : DEFAULTS.ZOOM_LEVEL).toFixed(1) + 'x';
   document.getElementById('zoom-duration-slider').value = scene.zoomDuration !== undefined ? scene.zoomDuration : DEFAULTS.ZOOM_DURATION;
   document.getElementById('zoom-duration-val').textContent = (scene.zoomDuration !== undefined ? scene.zoomDuration : DEFAULTS.ZOOM_DURATION).toFixed(1) + 's';
-  document.getElementById('highlight-delay-slider').value = scene.highlightDelay !== undefined ? scene.highlightDelay : 0.5;
-  document.getElementById('highlight-delay-val').textContent = (scene.highlightDelay !== undefined ? scene.highlightDelay : 0.5).toFixed(1) + 's';
-  document.getElementById('start-delay-slider').value = scene.startDelay !== undefined ? scene.startDelay : 0.0;
-  document.getElementById('start-delay-val').textContent = (scene.startDelay !== undefined ? scene.startDelay : 0.0).toFixed(1) + 's';
-  const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0;
+  document.getElementById('highlight-delay-slider').value = scene.highlightDelay !== undefined ? scene.highlightDelay : DEFAULTS.HIGHLIGHT_DELAY;
+  document.getElementById('highlight-delay-val').textContent = (scene.highlightDelay !== undefined ? scene.highlightDelay : DEFAULTS.HIGHLIGHT_DELAY).toFixed(1) + 's';
+  document.getElementById('start-delay-slider').value = scene.startDelay !== undefined ? scene.startDelay : DEFAULTS.START_DELAY;
+  document.getElementById('start-delay-val').textContent = (scene.startDelay !== undefined ? scene.startDelay : DEFAULTS.START_DELAY).toFixed(1) + 's';
+  const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : DEFAULTS.PAUSE_DURATION;
   document.getElementById('pause-duration-slider').value = pauseDuration;
   document.getElementById('pause-duration-val').textContent = pauseDuration.toFixed(1) + 's';
   document.getElementById('color-highlight').value = scene.highlightColor || DEFAULTS.HIGHLIGHT_COLOR;

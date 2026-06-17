@@ -143,13 +143,13 @@ async function handleRenderVideo(payload) {
     const gifFrames = [];
     const pngBuffers = [];
 
-    const videoEndDelay = typeof brandKit.videoEndDelay === 'number' ? brandKit.videoEndDelay : 2.0;
+    const videoEndDelay = typeof brandKit.videoEndDelay === 'number' ? brandKit.videoEndDelay : 1.0;
     const endDelayFrames = Math.ceil(videoEndDelay * fps);
 
     let totalFrames = 0;
     for (const scene of scenes) {
       const sceneFrames = Math.ceil(scene.duration * fps);
-      const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0;
+      const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : DEFAULTS.PAUSE_DURATION;
       const pauseFrames = Math.ceil(pauseDuration * fps);
       totalFrames += (sceneFrames + pauseFrames);
     }
@@ -161,7 +161,7 @@ async function handleRenderVideo(payload) {
     for (let s = 0; s < scenes.length; s++) {
       const scene = scenes[s];
       const sceneFrames = Math.ceil(scene.duration * fps);
-      const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0;
+      const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : DEFAULTS.PAUSE_DURATION;
       const pauseFrames = Math.ceil(pauseDuration * fps);
       const totalSceneFrames = sceneFrames + pauseFrames;
       
