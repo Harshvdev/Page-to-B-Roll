@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "B-Roll Studio",
+  "name": "B-Rollifier",
   "version": "1.0.0",
   "description": "Capture any webpage as cinematic B-roll video. Select text, apply camera presets, export studio-grade MP4.",
   "permissions": [
@@ -21,9 +21,16 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "css": ["content/overlay.css"],
-      "js": ["content/overlay.js", "content/content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "content/overlay.css"
+      ],
+      "js": [
+        "content/overlay.js",
+        "content/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
