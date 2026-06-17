@@ -69,6 +69,7 @@ function setupEventListeners() {
   document.getElementById('zoom-duration-slider').addEventListener('input', onZoomDurationChange);
   document.getElementById('highlight-delay-slider').addEventListener('input', onHighlightDelayChange);
   document.getElementById('start-delay-slider').addEventListener('input', onStartDelayChange);
+  document.getElementById('pause-duration-slider').addEventListener('input', onPauseDurationChange);
   document.getElementById('color-highlight').addEventListener('input', onHighlightColorChange);
   document.getElementById('color-box').addEventListener('input', onBoxColorChange);
   document.getElementById('transition-select').addEventListener('change', onTransitionChange);
@@ -76,6 +77,7 @@ function setupEventListeners() {
   document.getElementById('aspect-ratio').addEventListener('change', onAspectRatioChange);
   document.getElementById('resolution').addEventListener('change', onResolutionChange);
   document.getElementById('export-format').addEventListener('change', onExportFormatChange);
+  document.getElementById('video-end-delay-slider').addEventListener('input', onVideoEndDelayChange);
   document.getElementById('logo-upload').addEventListener('change', onLogoUpload);
   document.getElementById('watermark-toggle').addEventListener('change', onWatermarkToggle);
   document.getElementById('btn-export').addEventListener('click', onExportClick);
@@ -131,6 +133,19 @@ function onStartDelayChange(e) {
     scene.startDelay = val;
     saveScenes(scenes);
     console.log('[Broll Panel] Start delay set to ' + val + 's for scene', selectedSceneId);
+  }
+}
+
+function onPauseDurationChange(e) {
+  const val = parseFloat(e.target.value);
+  document.getElementById('pause-duration-val').textContent = val.toFixed(1) + 's';
+  if (!selectedSceneId) return;
+  const scene = scenes.find(s => s.id === selectedSceneId);
+  if (scene) {
+    scene.pauseDuration = val;
+    saveScenes(scenes);
+    renderTimeline();
+    console.log('[Broll Panel] Pause duration set to ' + val + 's for scene', selectedSceneId);
   }
 }
 
@@ -245,6 +260,14 @@ function onResolutionChange(e) {
 function onExportFormatChange(e) {
   brandKit.exportFormat = e.target.value;
   saveBrandKit(brandKit);
+}
+
+function onVideoEndDelayChange(e) {
+  const val = parseFloat(e.target.value);
+  document.getElementById('video-end-delay-val').textContent = val.toFixed(1) + 's';
+  brandKit.videoEndDelay = val;
+  saveBrandKit(brandKit);
+  console.log('[Broll Panel] Video end delay set to ' + val + 's');
 }
 
 function onLogoUpload(e) {
@@ -490,6 +513,7 @@ function buildScene(data) {
     zoomDuration: DEFAULTS.ZOOM_DURATION,
     highlightDelay: 0.5,
     startDelay: 0.0,
+    pauseDuration: 1.0,
     highlightPace: 'smooth',
     text: data.text || '',
     highlightColor: DEFAULTS.HIGHLIGHT_COLOR,
@@ -570,8 +594,9 @@ function renderTimeline() {
   scenes.forEach((scene) => {
     const block = document.createElement('div');
     block.className = 'timeline-block' + (scene.id === selectedSceneId ? ' selected' : '');
-    block.style.width = Math.max(40, scene.duration * 10) + 'px';
-    block.textContent = scene.duration + 's';
+    const totalDuration = scene.duration + (scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0);
+    block.style.width = Math.max(40, totalDuration * 10) + 'px';
+    block.textContent = totalDuration + 's';
     block.addEventListener('click', () => selectScene(scene.id));
     timeline.appendChild(block);
   });
@@ -646,6 +671,10 @@ function populateBrandKitControls() {
   document.getElementById('export-format').value = brandKit.exportFormat || 'mp4';
   document.getElementById('watermark-toggle').checked = brandKit.watermark !== false;
 
+  const videoEndDelay = brandKit.videoEndDelay !== undefined ? brandKit.videoEndDelay : 2.0;
+  document.getElementById('video-end-delay-slider').value = videoEndDelay;
+  document.getElementById('video-end-delay-val').textContent = videoEndDelay.toFixed(1) + 's';
+
   const isFree = licenseState.tier === TIER.FREE;
   document.querySelectorAll('.pro-only').forEach(el => {
     el.disabled = isFree;
@@ -704,9 +733,11 @@ function updateStyleControlsDisabled() {
   document.getElementById('zoom-duration-slider').disabled = !hasSelection;
   document.getElementById('highlight-delay-slider').disabled = !hasSelection;
   document.getElementById('start-delay-slider').disabled = !hasSelection;
+  document.getElementById('pause-duration-slider').disabled = !hasSelection;
   document.getElementById('color-highlight').disabled = !hasSelection;
   document.getElementById('color-box').disabled = !hasSelection;
   document.getElementById('transition-select').disabled = !hasSelection;
+  document.getElementById('video-end-delay-slider').disabled = !hasSelection;
 }
 
 function populateStyleControls(scene) {
@@ -720,6 +751,9 @@ function populateStyleControls(scene) {
   document.getElementById('highlight-delay-val').textContent = (scene.highlightDelay !== undefined ? scene.highlightDelay : 0.5).toFixed(1) + 's';
   document.getElementById('start-delay-slider').value = scene.startDelay !== undefined ? scene.startDelay : 0.0;
   document.getElementById('start-delay-val').textContent = (scene.startDelay !== undefined ? scene.startDelay : 0.0).toFixed(1) + 's';
+  const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0;
+  document.getElementById('pause-duration-slider').value = pauseDuration;
+  document.getElementById('pause-duration-val').textContent = pauseDuration.toFixed(1) + 's';
   document.getElementById('color-highlight').value = scene.highlightColor || DEFAULTS.HIGHLIGHT_COLOR;
   document.getElementById('color-box').value = scene.boxColor || DEFAULTS.BOX_COLOR;
   document.getElementById('transition-select').value = scene.transition || 'dissolve';

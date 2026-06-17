@@ -143,27 +143,42 @@ async function handleRenderVideo(payload) {
     const gifFrames = [];
     const pngBuffers = [];
 
+    const videoEndDelay = typeof brandKit.videoEndDelay === 'number' ? brandKit.videoEndDelay : 2.0;
+    const endDelayFrames = Math.ceil(videoEndDelay * fps);
+
     let totalFrames = 0;
     for (const scene of scenes) {
-      totalFrames += Math.ceil(scene.duration * fps);
+      const sceneFrames = Math.ceil(scene.duration * fps);
+      const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0;
+      const pauseFrames = Math.ceil(pauseDuration * fps);
+      totalFrames += (sceneFrames + pauseFrames);
     }
-    console.log('[Broll Offscreen] Total frames to render: ' + totalFrames);
+    totalFrames += endDelayFrames;
+
+    console.log('[Broll Offscreen] Total frames to render (including pauses & end delay): ' + totalFrames);
     let currentFrame = 0;
 
     for (let s = 0; s < scenes.length; s++) {
       const scene = scenes[s];
       const sceneFrames = Math.ceil(scene.duration * fps);
-      console.log('[Broll Offscreen] Rendering scene ' + (s + 1) + '/' + scenes.length + ' frames: ' + sceneFrames);
+      const pauseDuration = scene.pauseDuration !== undefined ? scene.pauseDuration : 1.0;
+      const pauseFrames = Math.ceil(pauseDuration * fps);
+      const totalSceneFrames = sceneFrames + pauseFrames;
+      
+      console.log('[Broll Offscreen] Rendering scene ' + (s + 1) + '/' + scenes.length + ' active frames: ' + sceneFrames + ', pause frames: ' + pauseFrames);
 
       const prevScene = s > 0 ? scenes[s - 1] : null;
 
-      for (let f = 0; f < sceneFrames; f++) {
+      for (let f = 0; f < totalSceneFrames; f++) {
         if (isCancelled) {
           throw new Error('Render cancelled by user');
         }
 
         const frameStart = performance.now();
-        renderFrame(ctx, imageBitmap, scene, f, sceneFrames, renderBrandKit, prevScene, canvasDims);
+        // If we are in the active animation, use f. If we are in the pause duration, use the last active frame.
+        const activeFrameIndex = f < sceneFrames ? f : Math.max(0, sceneFrames - 1);
+
+        renderFrame(ctx, imageBitmap, scene, activeFrameIndex, sceneFrames, renderBrandKit, prevScene, canvasDims);
 
         if (brandKit.exportFormat === 'gif') {
           gifFrames.push(ctx.getImageData(0, 0, width, height));
@@ -194,6 +209,55 @@ async function handleRenderVideo(payload) {
           payload: {
             percent,
             status: `Rendering frame ${currentFrame}/${totalFrames} (Scene ${s + 1}/${scenes.length})...`
+          },
+        }).catch(() => {});
+      }
+    }
+
+    // Append video end delay frames
+    if (endDelayFrames > 0 && scenes.length > 0) {
+      console.log('[Broll Offscreen] Rendering final video end delay frames: ' + endDelayFrames);
+      const lastScene = scenes[scenes.length - 1];
+      const lastSceneFrames = Math.ceil(lastScene.duration * fps);
+      const lastPrevScene = scenes.length > 1 ? scenes[scenes.length - 2] : null;
+
+      for (let f = 0; f < endDelayFrames; f++) {
+        if (isCancelled) {
+          throw new Error('Render cancelled by user');
+        }
+
+        const frameStart = performance.now();
+        const lastFrameIndex = Math.max(0, lastSceneFrames - 1);
+        renderFrame(ctx, imageBitmap, lastScene, lastFrameIndex, lastSceneFrames, renderBrandKit, lastPrevScene, canvasDims);
+
+        if (brandKit.exportFormat === 'gif') {
+          gifFrames.push(ctx.getImageData(0, 0, width, height));
+        } else if (brandKit.exportFormat === 'png_sequence') {
+          const blob = await getCanvasBlob(canvas, 'image/png');
+          const buffer = await blob.arrayBuffer();
+          pngBuffers.push(buffer);
+        }
+
+        if (isVideo) {
+          const track = recorder._stream.getVideoTracks()[0];
+          if (track && typeof track.requestFrame === 'function') {
+            track.requestFrame();
+          }
+          const elapsed = performance.now() - frameStart;
+          const targetDelay = 1000 / fps;
+          const remainingDelay = Math.max(0, targetDelay - elapsed);
+          await new Promise(resolve => setTimeout(resolve, remainingDelay));
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        currentFrame++;
+        const percent = 20 + Math.round((currentFrame / totalFrames) * 75);
+        chrome.runtime.sendMessage({
+          type: MSG.RENDER_PROGRESS,
+          payload: {
+            percent,
+            status: `Rendering final delay frames ${currentFrame}/${totalFrames}...`
           },
         }).catch(() => {});
       }
