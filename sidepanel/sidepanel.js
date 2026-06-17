@@ -68,6 +68,7 @@ function setupEventListeners() {
   document.getElementById('zoom-level-slider').addEventListener('input', onZoomLevelChange);
   document.getElementById('zoom-duration-slider').addEventListener('input', onZoomDurationChange);
   document.getElementById('highlight-delay-slider').addEventListener('input', onHighlightDelayChange);
+  document.getElementById('start-delay-slider').addEventListener('input', onStartDelayChange);
   document.getElementById('color-highlight').addEventListener('input', onHighlightColorChange);
   document.getElementById('color-box').addEventListener('input', onBoxColorChange);
   document.getElementById('transition-select').addEventListener('change', onTransitionChange);
@@ -118,6 +119,18 @@ function onHighlightDelayChange(e) {
     scene.highlightDelay = val;
     saveScenes(scenes);
     console.log('[Broll Panel] Highlight delay set to ' + val + 's for scene', selectedSceneId);
+  }
+}
+
+function onStartDelayChange(e) {
+  const val = parseFloat(e.target.value);
+  document.getElementById('start-delay-val').textContent = val.toFixed(1) + 's';
+  if (!selectedSceneId) return;
+  const scene = scenes.find(s => s.id === selectedSceneId);
+  if (scene) {
+    scene.startDelay = val;
+    saveScenes(scenes);
+    console.log('[Broll Panel] Start delay set to ' + val + 's for scene', selectedSceneId);
   }
 }
 
@@ -476,6 +489,7 @@ function buildScene(data) {
     zoomLevel: DEFAULTS.ZOOM_LEVEL,
     zoomDuration: DEFAULTS.ZOOM_DURATION,
     highlightDelay: 0.5,
+    startDelay: 0.0,
     highlightPace: 'smooth',
     text: data.text || '',
     highlightColor: DEFAULTS.HIGHLIGHT_COLOR,
@@ -689,6 +703,7 @@ function updateStyleControlsDisabled() {
   document.getElementById('zoom-level-slider').disabled = !hasSelection;
   document.getElementById('zoom-duration-slider').disabled = !hasSelection;
   document.getElementById('highlight-delay-slider').disabled = !hasSelection;
+  document.getElementById('start-delay-slider').disabled = !hasSelection;
   document.getElementById('color-highlight').disabled = !hasSelection;
   document.getElementById('color-box').disabled = !hasSelection;
   document.getElementById('transition-select').disabled = !hasSelection;
@@ -703,6 +718,8 @@ function populateStyleControls(scene) {
   document.getElementById('zoom-duration-val').textContent = (scene.zoomDuration !== undefined ? scene.zoomDuration : DEFAULTS.ZOOM_DURATION).toFixed(1) + 's';
   document.getElementById('highlight-delay-slider').value = scene.highlightDelay !== undefined ? scene.highlightDelay : 0.5;
   document.getElementById('highlight-delay-val').textContent = (scene.highlightDelay !== undefined ? scene.highlightDelay : 0.5).toFixed(1) + 's';
+  document.getElementById('start-delay-slider').value = scene.startDelay !== undefined ? scene.startDelay : 0.0;
+  document.getElementById('start-delay-val').textContent = (scene.startDelay !== undefined ? scene.startDelay : 0.0).toFixed(1) + 's';
   document.getElementById('color-highlight').value = scene.highlightColor || DEFAULTS.HIGHLIGHT_COLOR;
   document.getElementById('color-box').value = scene.boxColor || DEFAULTS.BOX_COLOR;
   document.getElementById('transition-select').value = scene.transition || 'dissolve';
