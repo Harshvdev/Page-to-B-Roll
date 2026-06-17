@@ -268,9 +268,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        let tabId = activeTabId;
-        if (message.payload.scenes && message.payload.scenes.length > 0) {
-          tabId = message.payload.scenes[0].tabId || activeTabId;
+        const tabId = await getActiveTabId();
+        if (message.payload.scenes) {
+          message.payload.scenes.forEach(scene => {
+            scene.tabId = tabId;
+          });
         }
         await chrome.storage.local.set({
           [STORAGE.EXPORT_ACTIVE]: true,
