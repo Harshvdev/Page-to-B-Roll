@@ -131,7 +131,7 @@ async function closeOffscreenDocument() {
   }
 }
 
-async function captureFullPage(tabId) {
+async function captureFullPage(tabId, scenes) {
   const targetTabId = tabId || activeTabId;
   if (!targetTabId) throw new Error('[Broll SW] No active tab found for capture');
 
@@ -147,7 +147,25 @@ async function captureFullPage(tabId) {
   const viewportHeight = dims.viewportHeight;
   const dpr = dims.devicePixelRatio || 1;
 
-  const offsets = calculateStripOffsets(pageHeight, viewportHeight);
+  let captureHeight = pageHeight;
+  if (Array.isArray(scenes) && scenes.length > 0) {
+    let maxSceneY = 0;
+    scenes.forEach(scene => {
+      const coords = scene.coordinates;
+      if (coords) {
+        const bottom = (coords.y || 0) + (coords.height || 0);
+        if (bottom > maxSceneY) {
+          maxSceneY = bottom;
+        }
+      }
+    });
+    if (maxSceneY > 0) {
+      captureHeight = Math.min(pageHeight, Math.max(viewportHeight, maxSceneY + viewportHeight * 1.5));
+      console.log('[Broll SW] Clamping capture height to:', captureHeight, 'original pageHeight:', pageHeight);
+    }
+  }
+
+  const offsets = calculateStripOffsets(captureHeight, viewportHeight);
   console.log('[Broll SW] Capture offsets:', offsets);
   const strips = [];
 
@@ -197,7 +215,7 @@ async function captureFullPage(tabId) {
 
   console.log('[Broll SW] captureFullPage done, strips:', strips.length);
 
-  return { strips, pageWidth, pageHeight, devicePixelRatio: dpr };
+  return { strips, pageWidth, pageHeight: captureHeight, devicePixelRatio: dpr };
 }
 
 async function forwardToContent(tabId, message) {
@@ -280,7 +298,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           [STORAGE.EXPORT_STATUS]: 'Initializing capture...',
         });
         console.log('[Broll SW] Starting full-page capture for tabId:', tabId);
-        const captureResult = await captureFullPage(tabId);
+        const captureResult = await captureFullPage(tabId, message.payload.scenes);
 
         console.log('[Broll SW] Ensuring offscreen document');
         await ensureOffscreenDocument();
