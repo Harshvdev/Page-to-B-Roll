@@ -1,5 +1,5 @@
 /**
- * B-Roll Studio — License Key Verification Worker
+ * Page to B-Roll — License Key Verification Worker
  *
  * Validates license keys using HMAC-SHA256 signatures.
  * No database needed — validity is encoded in the key itself.

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "B-Rollifier",
+  "name": "Page to B-Roll",
   "version": "1.0.0",
   "description": "Capture any webpage as cinematic B-roll video. Select text, apply camera presets, export studio-grade MP4.",
   "permissions": [
@@ -35,7 +35,7 @@
     }
   ],
   "action": {
-    "default_title": "B-Roll Studio — Open Side Panel"
+    "default_title": "Page to B-Roll — Open Side Panel"
   },
   "side_panel": {
     "default_path": "sidepanel/sidepanel.html"
@@ -44,6 +44,7 @@
     "16": "assets/icons/icon-16.png",
     "32": "assets/icons/icon-32.png",
     "48": "assets/icons/icon-48.png",
-    "128": "assets/icons/icon-128.png"
+    "128": "assets/icons/icon-128.png",
+    "512": "assets/icons/icon-512.png"
   }
 }
