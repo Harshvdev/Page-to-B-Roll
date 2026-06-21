@@ -46,6 +46,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   renderProjectList();
 
+  if (brandKit && brandKit.aspectRatio) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: MSG.SET_ASPECT_RATIO_STYLE,
+          payload: { aspectRatio: brandKit.aspectRatio }
+        }).catch(() => {});
+      }
+    });
+  }
+
+  try {
+    chrome.runtime.connect({ name: 'broll-sidepanel' });
+  } catch (err) {
+    console.error('[Broll Panel] Port connection to background worker failed:', err);
+  }
+
   const storedExport = await chrome.storage.local.get([
     STORAGE.EXPORT_ACTIVE,
     STORAGE.EXPORT_PROGRESS,
@@ -250,6 +267,17 @@ function onTransitionChange(e) {
 function onAspectRatioChange(e) {
   brandKit.aspectRatio = e.target.value;
   saveBrandKit(brandKit);
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs && tabs[0]) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        type: MSG.SET_ASPECT_RATIO_STYLE,
+        payload: { aspectRatio: e.target.value }
+      }).catch(function (err) {
+        console.warn('[Broll Panel] Failed to send SET_ASPECT_RATIO_STYLE:', err);
+      });
+    }
+  });
 }
 
 function onResolutionChange(e) {

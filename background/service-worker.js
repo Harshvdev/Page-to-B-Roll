@@ -27,6 +27,19 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       console.log('[Broll SW] Tab activated, sending REDRAW_SCENE_RECTS to tab:', activeTabId);
       await chrome.tabs.sendMessage(activeTabId, { type: MSG.REDRAW_SCENE_RECTS, payload: scenes }).catch(() => {});
     }
+
+    // 3. Sync aspect ratio style if side panel is open
+    const sidepanelResult = await chrome.storage.local.get('broll_sidepanel_open');
+    if (sidepanelResult['broll_sidepanel_open']) {
+      const kitResult = await chrome.storage.local.get(STORAGE.BRAND_KIT);
+      const kit = kitResult[STORAGE.BRAND_KIT] || {};
+      const ratio = kit.aspectRatio || '16:9';
+      console.log('[Broll SW] Tab activated, sending SET_ASPECT_RATIO_STYLE to tab:', activeTabId);
+      await chrome.tabs.sendMessage(activeTabId, {
+        type: MSG.SET_ASPECT_RATIO_STYLE,
+        payload: { aspectRatio: ratio }
+      }).catch(() => {});
+    }
   } catch (err) {
     console.error('[Broll SW] onActivated handlers error:', err);
   }
@@ -48,6 +61,19 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       if (Array.isArray(scenes) && scenes.length > 0) {
         console.log('[Broll SW] Tab updated and completed, sending REDRAW_SCENE_RECTS to tab:', tabId);
         await chrome.tabs.sendMessage(tabId, { type: MSG.REDRAW_SCENE_RECTS, payload: scenes }).catch(() => {});
+      }
+
+      // 3. Sync aspect ratio style if side panel is open
+      const sidepanelResult = await chrome.storage.local.get('broll_sidepanel_open');
+      if (sidepanelResult['broll_sidepanel_open']) {
+        const kitResult = await chrome.storage.local.get(STORAGE.BRAND_KIT);
+        const kit = kitResult[STORAGE.BRAND_KIT] || {};
+        const ratio = kit.aspectRatio || '16:9';
+        console.log('[Broll SW] Tab updated and completed, sending SET_ASPECT_RATIO_STYLE to tab:', tabId);
+        await chrome.tabs.sendMessage(tabId, {
+          type: MSG.SET_ASPECT_RATIO_STYLE,
+          payload: { aspectRatio: ratio }
+        }).catch(() => {});
       }
     } catch (err) {
       console.error('[Broll SW] onUpdated handlers error:', err);
@@ -447,4 +473,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   return false;
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'broll-sidepanel') {
+    console.log('[Broll SW] Side panel connected');
+    chrome.storage.local.set({ broll_sidepanel_open: true }).catch(() => {});
+    
+    port.onDisconnect.addListener(async () => {
+      console.log('[Broll SW] Side panel disconnected (closed)');
+      chrome.storage.local.set({ broll_sidepanel_open: false }).catch(() => {});
+      
+      const tabId = await getActiveTabId();
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: MSG.SET_ASPECT_RATIO_STYLE,
+          payload: { aspectRatio: null }
+        }).catch(() => {});
+      }
+    });
+  }
 });

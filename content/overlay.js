@@ -52,10 +52,12 @@
       const rect = range.getBoundingClientRect();
       if (!rect || rect.width === 0 || rect.height === 0) return;
 
-      const wordRects = getWordRectsForRange(range);
+      const pageWidth = document.documentElement.scrollWidth || document.body.scrollWidth;
+      const offsetLeft = Math.max(0, (window.innerWidth - pageWidth) / 2);
+      const wordRects = getWordRectsForRange(range, offsetLeft);
       const clientRects = Array.from(range.getClientRects());
       const lineRects = clientRects.map(r => ({
-        x: r.left + window.scrollX,
+        x: r.left + window.scrollX - offsetLeft,
         y: r.top + window.scrollY,
         width: r.width,
         height: r.height,
@@ -65,12 +67,12 @@
         text: selection.toString().trim(),
         scrollX: window.scrollX,
         scrollY: window.scrollY,
-        pageWidth: document.documentElement.scrollWidth || document.body.scrollWidth,
+        pageWidth: pageWidth,
         pageHeight: document.documentElement.scrollHeight || document.body.scrollHeight,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
-        clientX: rect.left,
-        clientY: rect.top,
+        clientX: rect.left + window.scrollX - offsetLeft,
+        clientY: rect.top + window.scrollY,
         rectWidth: rect.width,
         rectHeight: rect.height,
         wordRects: wordRects,
@@ -108,8 +110,8 @@
       const payload = {
         text: selectionData.text,
         rect: {
-          x: selectionData.clientX + selectionData.scrollX,
-          y: selectionData.clientY + selectionData.scrollY,
+          x: selectionData.clientX,
+          y: selectionData.clientY,
           width: selectionData.rectWidth,
           height: selectionData.rectHeight,
           wordRects: selectionData.wordRects || [],
@@ -230,13 +232,13 @@
     }
   }
 
-  function getWordRectsForRange(range) {
+  function getWordRectsForRange(range, offsetLeft) {
     const rects = [];
     const container = range.commonAncestorContainer;
     const doc = container.ownerDocument || document;
 
     if (container.nodeType === Node.TEXT_NODE) {
-      getWordsFromTextNode(container, range.startOffset, range.endOffset, rects);
+      getWordsFromTextNode(container, range.startOffset, range.endOffset, rects, offsetLeft);
       return rects;
     }
 
@@ -266,7 +268,7 @@
           endIdx = range.endOffset;
         }
 
-        getWordsFromTextNode(node, startIdx, endIdx, rects);
+        getWordsFromTextNode(node, startIdx, endIdx, rects, offsetLeft);
       } catch (e) {
         console.error('[Broll] Error traversing text node:', e);
       }
@@ -274,7 +276,7 @@
     return rects;
   }
 
-  function getWordsFromTextNode(node, startIdx, endIdx, rects) {
+  function getWordsFromTextNode(node, startIdx, endIdx, rects, offsetLeft) {
     const text = node.nodeValue;
     const regex = /[^\s]+/g;
     let match;
@@ -291,7 +293,7 @@
       if (clientRect && clientRect.width > 0 && clientRect.height > 0) {
         rects.push({
           word: match[0],
-          x: clientRect.left + window.scrollX,
+          x: clientRect.left + window.scrollX - offsetLeft,
           y: clientRect.top + window.scrollY,
           width: clientRect.width,
           height: clientRect.height,

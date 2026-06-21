@@ -9,10 +9,58 @@
     GET_PAGE_DIMENSIONS: 'GET_PAGE_DIMENSIONS',
     SCROLL_TAB: 'SCROLL_TAB',
     REDRAW_SCENE_RECTS: 'REDRAW_SCENE_RECTS',
+    SET_ASPECT_RATIO_STYLE: 'SET_ASPECT_RATIO_STYLE',
   };
 
   var modifiedElements = [];
   var scrollStyleOverride = null;
+  var currentRatioStr = null;
+  var aspectStyleOverride = null;
+
+  function updateAspectRatioStyle() {
+    if (!currentRatioStr) {
+      if (aspectStyleOverride && aspectStyleOverride.parentNode) {
+        aspectStyleOverride.parentNode.removeChild(aspectStyleOverride);
+      }
+      aspectStyleOverride = null;
+      document.documentElement.style.removeProperty('max-width');
+      document.documentElement.style.removeProperty('margin');
+      document.documentElement.style.removeProperty('box-shadow');
+      document.documentElement.style.removeProperty('min-height');
+      document.documentElement.style.removeProperty('background');
+      document.body.style.removeProperty('max-width');
+      document.body.style.removeProperty('margin');
+      document.body.style.removeProperty('min-height');
+      return;
+    }
+
+    var parts = currentRatioStr.split(':');
+    var r = parseFloat(parts[0]) / parseFloat(parts[1]);
+    if (isNaN(r)) return;
+
+    var targetWidth = Math.round(window.innerHeight * r);
+
+    if (!aspectStyleOverride) {
+      aspectStyleOverride = document.createElement('style');
+      aspectStyleOverride.id = 'broll-aspect-ratio-style';
+      document.documentElement.appendChild(aspectStyleOverride);
+    }
+
+    aspectStyleOverride.textContent = '\n      html {\n        max-width: ' + targetWidth + 'px !important;\n        margin: 0 auto !important;\n        box-shadow: 0 0 20px rgba(0,0,0,0.6) !important;\n        min-height: 100vh !important;\n        background: #0d0d14 !important;\n      }\n      body {\n        max-width: 100% !important;\n        margin: 0 auto !important;\n        min-height: 100vh !important;\n      }\n    ';
+
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  function setAspectRatio(ratioStr) {
+    currentRatioStr = ratioStr;
+    updateAspectRatioStyle();
+  }
+
+  window.addEventListener('resize', function () {
+    if (currentRatioStr) {
+      updateAspectRatioStyle();
+    }
+  });
 
   function disableSmoothScrolling() {
     if (!scrollStyleOverride) {
@@ -100,6 +148,10 @@
         overlay.deactivate();
         return false;
 
+      case MSG_TYPES.SET_ASPECT_RATIO_STYLE:
+        setAspectRatio(message.payload ? message.payload.aspectRatio : null);
+        return false;
+
       case MSG_TYPES.HIDE_OVERLAY:
         if (typeof overlay.hide === 'function') overlay.hide();
         disableSmoothScrolling();
@@ -152,6 +204,22 @@
       }
     } catch (err) {
       console.error('BrollOverlay init error:', err);
+    }
+
+    try {
+      chrome.storage.local.get(['broll_sidepanel_open', 'broll_brand_kit'], function(result) {
+        if (chrome.runtime.lastError) return;
+        var sidepanelOpen = !!result['broll_sidepanel_open'];
+        var kit = result['broll_brand_kit'] || {};
+        var ratio = kit.aspectRatio || '16:9';
+        if (sidepanelOpen) {
+          setAspectRatio(ratio);
+        } else {
+          setAspectRatio(null);
+        }
+      });
+    } catch (err) {
+      console.error('[Broll] Error initializing aspect ratio:', err);
     }
 
     try {
