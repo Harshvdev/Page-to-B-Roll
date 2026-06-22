@@ -236,6 +236,14 @@
 
   function init() {
     try {
+      if (window.BrollOverlay && typeof window.BrollOverlay.init === 'function') {
+        window.BrollOverlay.init();
+      }
+    } catch (err) {
+      console.error('BrollOverlay init error:', err);
+    }
+
+    try {
       chrome.storage.local.get(['broll_sidepanel_open', 'broll_brand_kit', 'broll_enabled'], function(result) {
         if (chrome.runtime.lastError) return;
         var enabled = result['broll_enabled'] !== false;
@@ -246,11 +254,6 @@
             window.BrollOverlay.destroy();
           }
           return;
-        }
-
-        // Initialize overlay since it is enabled
-        if (window.BrollOverlay && typeof window.BrollOverlay.init === 'function') {
-          window.BrollOverlay.init();
         }
 
         var sidepanelOpen = !!result['broll_sidepanel_open'];

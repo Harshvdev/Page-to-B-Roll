@@ -26,7 +26,13 @@
   }
 
   function init() {
-    if (document.getElementById(BROLL_ROOT_ID)) return;
+    const existing = document.getElementById(BROLL_ROOT_ID);
+    if (existing) {
+      root = existing;
+      svgLayer = document.getElementById(BROLL_SVG_ID);
+      updateDimensions();
+      return;
+    }
     root = document.createElement('div');
     root.id = BROLL_ROOT_ID;
     document.body.appendChild(root);
@@ -306,8 +312,9 @@
     deactivate();
     clearSceneRects();
     window.removeEventListener('resize', updateDimensions);
-    if (root && root.parentNode) {
-      root.parentNode.removeChild(root);
+    const existing = root || document.getElementById(BROLL_ROOT_ID);
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
     }
     root = null;
     svgLayer = null;
