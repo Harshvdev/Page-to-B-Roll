@@ -140,6 +140,43 @@
     }
 
     switch (type) {
+      case 'DISABLE_EFFECTS':
+        setAspectRatio(null);
+        restoreFloatingElements();
+        restoreSmoothScrolling();
+        if (typeof overlay.destroy === 'function') {
+          overlay.destroy();
+        }
+        return false;
+
+      case 'ENABLE_EFFECTS':
+        if (typeof overlay.init === 'function') {
+          overlay.init();
+        }
+        chrome.storage.local.get(['broll_brand_kit', 'broll_scenes', 'broll_capturing_active'], function (result) {
+          if (chrome.runtime.lastError) return;
+          var kit = result['broll_brand_kit'] || {};
+          var ratio = kit.aspectRatio || '16:9';
+          setAspectRatio(ratio);
+          
+          if (result['broll_capturing_active']) {
+            if (typeof overlay.activate === 'function') overlay.activate();
+          }
+          
+          var scenes = result['broll_scenes'];
+          if (typeof overlay.clearSceneRects === 'function') {
+            overlay.clearSceneRects();
+            if (Array.isArray(scenes)) {
+              scenes.forEach(function (scene, i) {
+                if (scene.url === window.location.href) {
+                  overlay.addSceneRect(scene, i + 1);
+                }
+              });
+            }
+          }
+        });
+        return false;
+
       case MSG_TYPES.ACTIVATE_SELECTION:
         overlay.activate();
         return false;
@@ -199,16 +236,23 @@
 
   function init() {
     try {
-      if (window.BrollOverlay) {
-        window.BrollOverlay.init();
-      }
-    } catch (err) {
-      console.error('BrollOverlay init error:', err);
-    }
-
-    try {
-      chrome.storage.local.get(['broll_sidepanel_open', 'broll_brand_kit'], function(result) {
+      chrome.storage.local.get(['broll_sidepanel_open', 'broll_brand_kit', 'broll_enabled'], function(result) {
         if (chrome.runtime.lastError) return;
+        var enabled = result['broll_enabled'] !== false;
+        if (!enabled) {
+          // If disabled, explicitly ensure clean state
+          setAspectRatio(null);
+          if (window.BrollOverlay && typeof window.BrollOverlay.destroy === 'function') {
+            window.BrollOverlay.destroy();
+          }
+          return;
+        }
+
+        // Initialize overlay since it is enabled
+        if (window.BrollOverlay && typeof window.BrollOverlay.init === 'function') {
+          window.BrollOverlay.init();
+        }
+
         var sidepanelOpen = !!result['broll_sidepanel_open'];
         var kit = result['broll_brand_kit'] || {};
         var ratio = kit.aspectRatio || '16:9';
@@ -219,7 +263,7 @@
         }
       });
     } catch (err) {
-      console.error('[Broll] Error initializing aspect ratio:', err);
+      console.error('[Broll] Error initializing content script:', err);
     }
 
     try {

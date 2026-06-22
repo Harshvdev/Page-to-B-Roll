@@ -22,6 +22,12 @@ body {
   border-bottom: 1px solid #2a2a42;
 }
 
+#logo-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #logo {
   font-weight: 700;
   font-size: 15px;
@@ -37,6 +43,83 @@ body {
   border-radius: 10px;
   font-weight: 600;
 }
+
+/* Switch styling (iOS style toggle) */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  font-size: 11px;
+  color: #888;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+  margin-bottom: 0 !important; /* Override label margin */
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #1e1e30;
+  transition: .3s;
+  border: 1px solid #2a2a42;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #888;
+  transition: .3s;
+}
+
+input:checked + .slider {
+  background-color: #FFEB3B;
+  border-color: #FFEB3B;
+}
+
+input:checked + .slider:before {
+  transform: translateX(14px);
+  background-color: #1a1a2e;
+}
+
+.slider.round {
+  border-radius: 20px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* App disabled state (dims everything except header) */
+#app.disabled > :not(#header) {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 
 #toolbar {
   padding: 10px 16px;

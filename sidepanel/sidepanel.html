@@ -9,8 +9,17 @@
 <body>
   <div id="app">
     <header id="header">
-      <div id="logo">Page to B-Roll</div>
-      <div id="tier-badge" style="display: none;">FREE</div>
+      <div id="logo-container">
+        <div id="logo">Page to B-Roll</div>
+        <div id="tier-badge" style="display: none;">FREE</div>
+      </div>
+      <div class="toggle-container" title="Enable/Disable Extension Effects">
+        <span class="toggle-label">Active</span>
+        <label class="switch">
+          <input type="checkbox" id="extension-toggle" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
     </header>
 
     <div id="toolbar">

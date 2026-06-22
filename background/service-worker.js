@@ -13,6 +13,15 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const tab = await chrome.tabs.get(activeTabId);
     if (!tab) return;
 
+    // Check if extension is enabled
+    const enabledResult = await chrome.storage.local.get('broll_enabled');
+    const enabled = enabledResult['broll_enabled'] !== false;
+    if (!enabled) {
+      console.log('[Broll SW] Extension is disabled. Ensuring effects are disabled on activated tab:', activeTabId);
+      await chrome.tabs.sendMessage(activeTabId, { type: 'DISABLE_EFFECTS' }).catch(() => {});
+      return;
+    }
+
     // 1. Sync capturing state if active
     const result = await chrome.storage.local.get(STORAGE.CAPTURING);
     if (result[STORAGE.CAPTURING]) {
@@ -48,6 +57,15 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') {
     try {
+      // Check if extension is enabled
+      const enabledResult = await chrome.storage.local.get('broll_enabled');
+      const enabled = enabledResult['broll_enabled'] !== false;
+      if (!enabled) {
+        console.log('[Broll SW] Extension is disabled. Ensuring effects are disabled on updated tab:', tabId);
+        await chrome.tabs.sendMessage(tabId, { type: 'DISABLE_EFFECTS' }).catch(() => {});
+        return;
+      }
+
       // 1. Sync capturing state if active
       const result = await chrome.storage.local.get(STORAGE.CAPTURING);
       if (result[STORAGE.CAPTURING]) {
