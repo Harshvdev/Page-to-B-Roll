@@ -202,6 +202,15 @@
         return false;
 
       case MSG_TYPES.GET_PAGE_DIMENSIONS:
+        var rootEl = document.getElementById('broll-root');
+        var offsetLeftVal = 0;
+        if (rootEl) {
+          var rootRect = rootEl.getBoundingClientRect();
+          offsetLeftVal = rootRect.left + window.scrollX;
+        } else {
+          var htmlRect = document.documentElement.getBoundingClientRect();
+          offsetLeftVal = htmlRect.left + window.scrollX;
+        }
         sendResponse({
           pageWidth: document.documentElement.scrollWidth || document.body.scrollWidth,
           pageHeight: document.documentElement.scrollHeight || document.body.scrollHeight,
@@ -209,6 +218,7 @@
           viewportWidth: window.innerWidth,
           viewportHeight: window.innerHeight,
           devicePixelRatio: window.devicePixelRatio || 1,
+          offsetLeft: offsetLeftVal,
         });
         return true;
 

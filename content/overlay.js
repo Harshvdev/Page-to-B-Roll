@@ -58,13 +58,15 @@
       const rect = range.getBoundingClientRect();
       if (!rect || rect.width === 0 || rect.height === 0) return;
 
+      const rootRect = root.getBoundingClientRect();
+      const offsetLeft = rootRect.left + window.scrollX;
+      const offsetTop = rootRect.top + window.scrollY;
       const pageWidth = document.documentElement.scrollWidth || document.body.scrollWidth;
-      const offsetLeft = Math.max(0, (window.innerWidth - pageWidth) / 2);
-      const wordRects = getWordRectsForRange(range, offsetLeft);
+      const wordRects = getWordRectsForRange(range, offsetLeft, offsetTop);
       const clientRects = Array.from(range.getClientRects());
       const lineRects = clientRects.map(r => ({
         x: r.left + window.scrollX - offsetLeft,
-        y: r.top + window.scrollY,
+        y: r.top + window.scrollY - offsetTop,
         width: r.width,
         height: r.height,
       }));
@@ -78,7 +80,7 @@
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         clientX: rect.left + window.scrollX - offsetLeft,
-        clientY: rect.top + window.scrollY,
+        clientY: rect.top + window.scrollY - offsetTop,
         rectWidth: rect.width,
         rectHeight: rect.height,
         wordRects: wordRects,
@@ -238,13 +240,13 @@
     }
   }
 
-  function getWordRectsForRange(range, offsetLeft) {
+  function getWordRectsForRange(range, offsetLeft, offsetTop) {
     const rects = [];
     const container = range.commonAncestorContainer;
     const doc = container.ownerDocument || document;
 
     if (container.nodeType === Node.TEXT_NODE) {
-      getWordsFromTextNode(container, range.startOffset, range.endOffset, rects, offsetLeft);
+      getWordsFromTextNode(container, range.startOffset, range.endOffset, rects, offsetLeft, offsetTop);
       return rects;
     }
 
@@ -274,7 +276,7 @@
           endIdx = range.endOffset;
         }
 
-        getWordsFromTextNode(node, startIdx, endIdx, rects, offsetLeft);
+        getWordsFromTextNode(node, startIdx, endIdx, rects, offsetLeft, offsetTop);
       } catch (e) {
         console.error('[Broll] Error traversing text node:', e);
       }
@@ -282,7 +284,7 @@
     return rects;
   }
 
-  function getWordsFromTextNode(node, startIdx, endIdx, rects, offsetLeft) {
+  function getWordsFromTextNode(node, startIdx, endIdx, rects, offsetLeft, offsetTop) {
     const text = node.nodeValue;
     const regex = /[^\s]+/g;
     let match;
@@ -300,7 +302,7 @@
         rects.push({
           word: match[0],
           x: clientRect.left + window.scrollX - offsetLeft,
-          y: clientRect.top + window.scrollY,
+          y: clientRect.top + window.scrollY - offsetTop,
           width: clientRect.width,
           height: clientRect.height,
         });

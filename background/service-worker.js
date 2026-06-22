@@ -190,6 +190,7 @@ async function captureFullPage(tabId, scenes) {
   const pageHeight = dims.scrollHeight;
   const viewportHeight = dims.viewportHeight;
   const dpr = dims.devicePixelRatio || 1;
+  const offsetLeft = dims.offsetLeft || 0;
 
   let captureHeight = pageHeight;
   if (Array.isArray(scenes) && scenes.length > 0) {
@@ -263,7 +264,7 @@ async function captureFullPage(tabId, scenes) {
 
   console.log('[Broll SW] captureFullPage done, strips:', strips.length);
 
-  return { strips, actualOffsets, pageWidth, pageHeight: captureHeight, devicePixelRatio: dpr };
+  return { strips, actualOffsets, pageWidth, pageHeight: captureHeight, devicePixelRatio: dpr, offsetLeft: offsetLeft };
 }
 
 async function forwardToContent(tabId, message) {
@@ -362,6 +363,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           pageWidth: captureResult.pageWidth,
           pageHeight: captureResult.pageHeight,
           devicePixelRatio: captureResult.devicePixelRatio,
+          offsetLeft: captureResult.offsetLeft,
           brandKit: message.payload.brandKit,
           fps: DEFAULTS.FPS,
           license: message.payload.license,
