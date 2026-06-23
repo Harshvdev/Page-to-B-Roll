@@ -16,6 +16,7 @@
   var scrollStyleOverride = null;
   var currentRatioStr = null;
   var aspectStyleOverride = null;
+  var isExtensionActive = false;
 
   function updateAspectRatioStyle() {
     if (!currentRatioStr) {
@@ -139,8 +140,14 @@
       return false;
     }
 
+    if (type !== 'ENABLE_EFFECTS' && type !== 'DISABLE_EFFECTS' && !isExtensionActive) {
+      console.log('[Broll] Ignoring message because sidepanel is closed or extension is disabled:', type);
+      return false;
+    }
+
     switch (type) {
       case 'DISABLE_EFFECTS':
+        isExtensionActive = false;
         setAspectRatio(null);
         restoreFloatingElements();
         restoreSmoothScrolling();
@@ -150,31 +157,7 @@
         return false;
 
       case 'ENABLE_EFFECTS':
-        if (typeof overlay.init === 'function') {
-          overlay.init();
-        }
-        chrome.storage.local.get(['broll_brand_kit', 'broll_scenes', 'broll_capturing_active'], function (result) {
-          if (chrome.runtime.lastError) return;
-          var kit = result['broll_brand_kit'] || {};
-          var ratio = kit.aspectRatio || '16:9';
-          setAspectRatio(ratio);
-          
-          if (result['broll_capturing_active']) {
-            if (typeof overlay.activate === 'function') overlay.activate();
-          }
-          
-          var scenes = result['broll_scenes'];
-          if (typeof overlay.clearSceneRects === 'function') {
-            overlay.clearSceneRects();
-            if (Array.isArray(scenes)) {
-              scenes.forEach(function (scene, i) {
-                if (scene.url === window.location.href) {
-                  overlay.addSceneRect(scene, i + 1);
-                }
-              });
-            }
-          }
-        });
+        syncState();
         return false;
 
       case MSG_TYPES.ACTIVATE_SELECTION:
@@ -244,45 +227,76 @@
     }
   }
 
-  function init() {
+  function syncState() {
     try {
-      if (window.BrollOverlay && typeof window.BrollOverlay.init === 'function') {
-        window.BrollOverlay.init();
-      }
-    } catch (err) {
-      console.error('BrollOverlay init error:', err);
-    }
-
-    try {
-      chrome.storage.local.get(['broll_sidepanel_open', 'broll_brand_kit', 'broll_enabled'], function(result) {
+      chrome.storage.local.get(['broll_sidepanel_open', 'broll_brand_kit', 'broll_enabled', 'broll_capturing_active', 'broll_scenes'], function(result) {
         if (chrome.runtime.lastError) return;
         var enabled = result['broll_enabled'] !== false;
-        if (!enabled) {
-          // If disabled, explicitly ensure clean state
+        var sidepanelOpen = !!result['broll_sidepanel_open'];
+        var overlay = window.BrollOverlay;
+
+        isExtensionActive = enabled && sidepanelOpen;
+
+        if (!isExtensionActive) {
           setAspectRatio(null);
-          if (window.BrollOverlay && typeof window.BrollOverlay.destroy === 'function') {
-            window.BrollOverlay.destroy();
+          restoreFloatingElements();
+          restoreSmoothScrolling();
+          if (overlay && typeof overlay.destroy === 'function') {
+            overlay.destroy();
           }
           return;
         }
 
-        var sidepanelOpen = !!result['broll_sidepanel_open'];
+        if (overlay && typeof overlay.init === 'function') {
+          overlay.init();
+        }
+
         var kit = result['broll_brand_kit'] || {};
         var ratio = kit.aspectRatio || '16:9';
-        if (sidepanelOpen) {
-          setAspectRatio(ratio);
+        setAspectRatio(ratio);
+        
+        if (result['broll_capturing_active']) {
+          if (overlay && typeof overlay.activate === 'function') overlay.activate();
         } else {
-          setAspectRatio(null);
+          if (overlay && typeof overlay.deactivate === 'function') overlay.deactivate();
+        }
+        
+        var scenes = result['broll_scenes'];
+        if (overlay && typeof overlay.clearSceneRects === 'function') {
+          overlay.clearSceneRects();
+          if (Array.isArray(scenes)) {
+            scenes.forEach(function (scene, i) {
+              if (scene.url === window.location.href) {
+                overlay.addSceneRect(scene, i + 1);
+              }
+            });
+          }
         }
       });
     } catch (err) {
-      console.error('[Broll] Error initializing content script:', err);
+      console.error('[Broll] Error in syncState:', err);
     }
+  }
+
+  function init() {
+    syncState();
 
     try {
       chrome.runtime.onMessage.addListener(handleMessage);
     } catch (err) {
       console.error('chrome.runtime.onMessage error:', err);
+    }
+
+    try {
+      chrome.storage.onChanged.addListener(function (changes, areaName) {
+        if (areaName === 'local') {
+          if (changes.broll_sidepanel_open || changes.broll_enabled || changes.broll_capturing_active || changes.broll_scenes) {
+            syncState();
+          }
+        }
+      });
+    } catch (err) {
+      console.error('chrome.storage.onChanged error:', err);
     }
   }
 

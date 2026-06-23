@@ -109,11 +109,17 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set({ broll_sidepanel_open: false }).catch(() => {});
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0]) activeTabId = tabs[0].id;
     console.log('[Broll SW] Installed, activeTabId:', activeTabId);
   });
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.storage.local.set({ broll_sidepanel_open: false }).catch(() => {});
+});
+
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
