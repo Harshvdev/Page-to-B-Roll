@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Page to B-Roll</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d14;
+      --card-bg: #161624;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #FFEB3B;
+      --border: #2a2a3f;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-top: 0;
+      color: #fff;
+      font-weight: 700;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      color: #fff;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    p, li {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .highlight {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p>Last updated: <span class="highlight">June 23, 2026</span></p>
+    
+    <p>This privacy policy describes how the <strong>Page to B-Roll</strong> Chrome Extension handles information when you use our services. We value your privacy and are committed to maintaining full transparency.</p>
+
+    <h2>1. 100% Local Data Processing</h2>
+    <p>Page to B-Roll is designed to process and store your project data completely on your local machine:</p>
+    <ul>
+      <li>All B-roll scenes, text selections, and configurations are stored securely inside the browser's local storage (using the standard <span class="highlight">chrome.storage.local</span> API) on your device.</li>
+      <li>Video rendering and canvas compositing tasks are executed locally in a background offscreen page within your browser context.</li>
+    </ul>
+
+    <h2>2. No Data Collection or Transmission</h2>
+    <p>We do not collect, monitor, or transmit any user data. Your data never leaves your computer:</p>
+    <ul>
+      <li>We do not operate any external data collection, analytic servers, or tracking systems.</li>
+      <li>Your webpage selections, screenshots, and exported files are never uploaded or shared with us or any third parties.</li>
+    </ul>
+
+    <h2>3. Future Payment & Licensing Services</h2>
+    <p>In future versions of this extension, we may introduce payment integrations (via secure third-party billing providers like Stripe or Gumroad) and license key verification:</p>
+    <ul>
+      <li><strong>Payments:</strong> All transaction details will be handled directly on the payment provider's secure platform. The extension will not collect or store your billing or credit card numbers.</li>
+      <li><strong>Licensing:</strong> A license key and email verification request will be securely sent to our license validation endpoint solely to check authorization for Pro features.</li>
+    </ul>
+
+    <h2>4. Contact Us</h2>
+    <p>If you have any questions, concerns, or feedback regarding this privacy policy, please contact us at your support email address.</p>
+
+    <div class="footer">
+      &copy; 2026 Page to B-Roll. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
