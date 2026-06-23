@@ -1,6 +1,11 @@
 ;(function () {
   'use strict';
 
+  if (window.__brollContentInjected) {
+    return;
+  }
+  window.__brollContentInjected = true;
+
   var MSG_TYPES = {
     ACTIVATE_SELECTION: 'ACTIVATE_SELECTION',
     DEACTIVATE_SELECTION: 'DEACTIVATE_SELECTION',

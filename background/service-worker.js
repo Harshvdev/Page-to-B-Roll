@@ -13,6 +13,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const tab = await chrome.tabs.get(activeTabId);
     if (!tab) return;
 
+    // Check if side panel is open and try to inject content scripts
+    const sidepanelResult = await chrome.storage.local.get('broll_sidepanel_open');
+    const isSidepanelOpen = !!sidepanelResult['broll_sidepanel_open'];
+    if (isSidepanelOpen) {
+      await injectContentScripts(activeTabId);
+    }
+
     // Check if extension is enabled
     const enabledResult = await chrome.storage.local.get('broll_enabled');
     const enabled = enabledResult['broll_enabled'] !== false;
@@ -38,8 +45,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     }
 
     // 3. Sync aspect ratio style if side panel is open
-    const sidepanelResult = await chrome.storage.local.get('broll_sidepanel_open');
-    if (sidepanelResult['broll_sidepanel_open']) {
+    if (isSidepanelOpen) {
       const kitResult = await chrome.storage.local.get(STORAGE.BRAND_KIT);
       const kit = kitResult[STORAGE.BRAND_KIT] || {};
       const ratio = kit.aspectRatio || '16:9';
@@ -57,6 +63,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') {
     try {
+      // Check if side panel is open and inject content scripts
+      const sidepanelResult = await chrome.storage.local.get('broll_sidepanel_open');
+      const isSidepanelOpen = !!sidepanelResult['broll_sidepanel_open'];
+      if (isSidepanelOpen) {
+        await injectContentScripts(tabId);
+      }
+
       // Check if extension is enabled
       const enabledResult = await chrome.storage.local.get('broll_enabled');
       const enabled = enabledResult['broll_enabled'] !== false;
@@ -82,8 +95,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       }
 
       // 3. Sync aspect ratio style if side panel is open
-      const sidepanelResult = await chrome.storage.local.get('broll_sidepanel_open');
-      if (sidepanelResult['broll_sidepanel_open']) {
+      if (isSidepanelOpen) {
         const kitResult = await chrome.storage.local.get(STORAGE.BRAND_KIT);
         const kit = kitResult[STORAGE.BRAND_KIT] || {};
         const ratio = kit.aspectRatio || '16:9';
@@ -103,8 +115,9 @@ chrome.action.onClicked.addListener(async (tab) => {
   try {
     console.log('[Broll SW] Extension icon clicked, opening side panel');
     await chrome.sidePanel.open({ tabId: tab.id });
+    await injectContentScripts(tab.id);
   } catch (err) {
-    console.error('[Broll SW] Failed to open side panel:', err);
+    console.error('[Broll SW] Failed to open side panel or inject scripts:', err);
   }
 });
 
@@ -120,6 +133,28 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.storage.local.set({ broll_sidepanel_open: false }).catch(() => {});
 });
 
+
+async function injectContentScripts(tabId) {
+  try {
+    // Only inject if it's a valid web page URL (not chrome://, etc.)
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('about:') || tab.url.startsWith('edge://')) {
+      return;
+    }
+    console.log('[Broll SW] Injecting styles and scripts into tab:', tabId);
+    await chrome.scripting.insertCSS({
+      target: { tabId: tabId },
+      files: ['content/overlay.css']
+    });
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['content/overlay.js', 'content/content.js']
+    });
+    console.log('[Broll SW] Injection successful for tab:', tabId);
+  } catch (err) {
+    console.warn('[Broll SW] Could not inject content scripts (likely no permission or restricted page):', err.message);
+  }
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -505,6 +540,13 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'broll-sidepanel') {
     console.log('[Broll SW] Side panel connected');
     chrome.storage.local.set({ broll_sidepanel_open: true }).catch(() => {});
+    
+    (async () => {
+      const tabId = await getActiveTabId();
+      if (tabId) {
+        await injectContentScripts(tabId);
+      }
+    })();
     
     port.onDisconnect.addListener(async () => {
       console.log('[Broll SW] Side panel disconnected (closed)');

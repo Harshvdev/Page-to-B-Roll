@@ -1,6 +1,10 @@
 ;(function () {
   'use strict';
 
+  if (window.BrollOverlay) {
+    return;
+  }
+
   const BROLL_ROOT_ID = 'broll-root';
   const BROLL_SVG_ID = 'broll-svg-layer';
   const ACTIVE_CLASS = 'broll-active-mode';
