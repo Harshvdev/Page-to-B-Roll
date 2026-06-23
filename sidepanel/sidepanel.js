@@ -3,7 +3,6 @@ import {
   getScenes, saveScenes, clearScenes,
   getBrandKit, saveBrandKit,
   getLicense, getProjects, saveProject, deleteProject,
-  getEnabled, saveEnabled,
 } from '../lib/storage.js';
 import { PRESETS } from '../lib/presets.js';
 
@@ -21,14 +20,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await saveBrandKit(brandKit);
   licenseState = await getLicense();
 
-  const enabled = await getEnabled();
-  document.getElementById('extension-toggle').checked = enabled;
   const appEl = document.getElementById('app');
-  if (enabled) {
-    appEl.classList.remove('disabled');
-  } else {
-    appEl.classList.add('disabled');
-  }
+  appEl.classList.remove('disabled');
 
   const storedCapturing = await chrome.storage.local.get(STORAGE.CAPTURING);
   isCapturing = !!storedCapturing[STORAGE.CAPTURING];
@@ -41,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.classList.remove('active');
   }
 
-  console.log('[Broll Panel] Loaded scenes:', scenes.length, 'brandKit:', brandKit, 'license:', licenseState.tier, 'isCapturing:', isCapturing, 'enabled:', enabled);
+  console.log('[Broll Panel] Loaded scenes:', scenes.length, 'brandKit:', brandKit, 'license:', licenseState.tier, 'isCapturing:', isCapturing);
 
   if (scenes.length > 0) {
     selectScene(scenes[0].id);
@@ -56,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   renderProjectList();
 
-  if (enabled && brandKit && brandKit.aspectRatio) {
+  if (brandKit && brandKit.aspectRatio) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs && tabs[0]) {
         chrome.tabs.sendMessage(tabs[0].id, {
@@ -110,7 +103,6 @@ function setupEventListeners() {
   document.getElementById('btn-export').addEventListener('click', onExportClick);
   document.getElementById('btn-activate-license').addEventListener('click', onActivateLicense);
   document.getElementById('btn-save-project').addEventListener('click', onSaveProject);
-  document.getElementById('extension-toggle').addEventListener('change', onExtensionToggleChange);
 
   chrome.runtime.onMessage.addListener(onRuntimeMessage);
   console.log('[Broll Panel] Listeners set up');
@@ -218,28 +210,6 @@ async function onActivateClick() {
     } catch (err) {
       console.error('DEACTIVATE_SELECTION error:', err);
     }
-  }
-}
-
-async function onExtensionToggleChange(e) {
-  const enabled = e.target.checked;
-  await saveEnabled(enabled);
-  
-  const appEl = document.getElementById('app');
-  if (enabled) {
-    appEl.classList.remove('disabled');
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs && tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'ENABLE_EFFECTS' }).catch(() => {});
-      }
-    });
-  } else {
-    appEl.classList.add('disabled');
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs && tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'DISABLE_EFFECTS' }).catch(() => {});
-      }
-    });
   }
 }
 
